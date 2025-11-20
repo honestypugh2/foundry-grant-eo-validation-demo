@@ -1,0 +1,281 @@
+# Executive Order 13985: Advancing Racial Equity and Support for Underserved Communities
+
+**Signed:** January 20, 2021  
+**Federal Register Number:** 86 FR 7009  
+**Status:** Active
+
+## Overview
+
+This executive order advances equity for all, including people of color and others who have been historically underserved, marginalized, and adversely affected by persistent poverty and inequality. It directs federal agencies to assess whether their programs and policies perpetuate systemic barriers to opportunities and benefits for underserved communities.
+
+## Policy Statement
+
+Equal opportunity is the bedrock of American democracy, and our diversity is one of our country's greatest strengths. But for too many, the American Dream remains out of reach. The Federal Government must affirmatively advance equity, civil rights, racial justice, and equal opportunity.
+
+## Key Provisions
+
+### Section 1: Definitions
+
+**Equity**: The consistent and systematic fair, just, and impartial treatment of all individuals, including those who belong to underserved communities that have been denied such treatment.
+
+**Underserved Communities**: Populations sharing particular characteristics that have been systematically denied a full opportunity to participate in aspects of economic, social, and civic life, including:
+- Black, Latino, Indigenous and Native American persons
+- Asian Americans and Pacific Islanders
+- Other persons of color
+- Members of religious minorities
+- Lesbian, gay, bisexual, transgender, and queer (LGBTQ+) persons
+- Persons with disabilities
+- Persons in rural areas
+- Persons otherwise adversely affected by persistent poverty or inequality
+
+### Section 2: Agency Equity Assessment
+
+All federal agencies must:
+
+1. **Conduct Equity Assessments**
+   - Review existing policies and programs
+   - Identify barriers to equal opportunity
+   - Assess disparate impacts on underserved communities
+   - Develop plans to address inequities
+
+2. **Collect and Analyze Data**
+   - Gather demographic data on program beneficiaries
+   - Assess whether benefits are equitably distributed
+   - Identify underserved communities not accessing programs
+   - Track progress toward equity goals
+
+3. **Remove Barriers**
+   - Eliminate unnecessary procedural or administrative barriers
+   - Simplify application and enrollment processes
+   - Provide language access and accessibility accommodations
+   - Expand outreach to underserved communities
+
+## Compliance Requirements for Grant Programs
+
+### Equity Impact Assessment
+
+All grant applications must include:
+
+1. **Target Population Analysis**
+   - Identify intended beneficiaries with demographic breakdown
+   - Document how project addresses needs of underserved communities
+   - Demonstrate understanding of community-specific challenges
+   - Show connection to equity advancement
+
+2. **Barrier Analysis**
+   - Identify existing barriers to program participation
+   - Document how project removes or reduces these barriers
+   - Address accessibility (physical, digital, linguistic, economic)
+   - Consider intersectional impacts
+
+3. **Equitable Distribution Plan**
+   - Explain how benefits will be distributed fairly
+   - Set measurable equity goals and targets
+   - Describe safeguards against discrimination
+   - Document commitment to civil rights compliance
+
+### Community Engagement Requirements
+
+Projects must demonstrate:
+
+1. **Meaningful Community Involvement**
+   - Early and ongoing consultation with affected communities
+   - Inclusion of community voices in project design
+   - Culturally appropriate engagement methods
+   - Documentation of community input and how it shaped the project
+
+2. **Accessibility and Language Access**
+   - Materials available in languages spoken by target communities
+   - Accommodations for persons with disabilities
+   - Accessible meeting locations and times
+   - Alternative participation methods (virtual, written, etc.)
+
+3. **Trust-Building with Underserved Communities**
+   - Recognition of historical harms and distrust
+   - Partnership with trusted community organizations
+   - Transparent decision-making processes
+   - Commitment to ongoing accountability
+
+### Data Collection and Reporting
+
+Grant recipients must:
+
+1. **Disaggregate Data**
+   - Collect demographic data on program participants
+   - Break down outcomes by race, ethnicity, gender, disability status, etc.
+   - Report on accessibility of services
+   - Track participation rates by community
+
+2. **Measure Equity Outcomes**
+   - Establish baseline equity metrics
+   - Track progress toward reducing disparities
+   - Identify and address emerging inequities
+   - Report on equity goals achievement
+
+3. **Protect Privacy**
+   - Follow data privacy regulations
+   - Obtain informed consent for data collection
+   - Aggregate data when necessary to protect identity
+   - Ensure culturally sensitive data practices
+
+## Grant Evaluation Criteria
+
+Applications will be evaluated on:
+
+1. **Equity Impact** (30%): Demonstrated advancement of equity for underserved communities
+2. **Community Engagement** (25%): Meaningfulness and authenticity of community involvement
+3. **Barrier Removal** (20%): Effectiveness in reducing obstacles to participation
+4. **Measurable Outcomes** (15%): Clear equity goals and tracking mechanisms
+5. **Sustainability** (10%): Long-term commitment to equity beyond grant period
+
+## Prohibited Practices
+
+Projects must not:
+- Perpetuate discrimination or bias
+- Create new barriers to access
+- Exclude underserved communities from benefits
+- Token engagement without meaningful input
+- Ignore documented community needs
+- Fail to accommodate accessibility needs
+
+## Documentation Requirements
+
+Applications must include:
+
+1. **Equity Impact Statement**
+   - Detailed analysis of project's impact on underserved communities
+   - Identification of potential disparate impacts
+   - Mitigation strategies for any negative impacts
+   - Enhancement strategies for positive impacts
+
+2. **Community Engagement Documentation**
+   - Summary of community consultation process
+   - List of community organizations involved
+   - Documentation of community input received
+   - Explanation of how input influenced project design
+
+3. **Demographic Data Collection Plan**
+   - Description of data to be collected
+   - Privacy protection measures
+   - Analysis and reporting methodology
+   - Plan for using data to improve equity
+
+4. **Accessibility Plan**
+   - Physical accessibility accommodations
+   - Digital accessibility standards (WCAG 2.1 AA minimum)
+   - Language access services
+   - Alternative format availability
+
+5. **Civil Rights Compliance Certification**
+   - Assurance of non-discrimination
+   - Commitment to Title VI and other civil rights laws
+   - Description of internal equity practices
+   - Complaint and grievance procedures
+
+## Best Practices for Equity Advancement
+
+### Successful Projects:
+- Partner with community-based organizations serving underserved populations
+- Hire staff from and representative of target communities
+- Provide culturally competent services
+- Address root causes of inequity, not just symptoms
+- Build community capacity and leadership
+- Ensure benefits remain in the community long-term
+
+### Effective Outreach:
+- Use trusted messengers and community networks
+- Provide information through multiple channels
+- Conduct outreach in community spaces
+- Eliminate jargon and use plain language
+- Offer application assistance
+- Remove financial barriers to participation
+
+### Measuring Success:
+- Track both participation and outcomes by demographic groups
+- Compare results to community demographics
+- Assess whether disparities are narrowing
+- Solicit ongoing community feedback
+- Adjust strategies based on data
+- Report transparently on progress and challenges
+
+## Resources and Technical Assistance
+
+**Available Support:**
+- Equity assessment toolkits and templates
+- Data collection and analysis guidance
+- Community engagement best practices
+- Accessibility standards and resources
+- Language access services directory
+- Training on culturally responsive practices
+
+**Key Contacts:**
+- Office of Civil Rights (within each agency)
+- Equity Team (newly established in each agency)
+- Office of Management and Budget - Equity Team
+- Domestic Policy Council
+
+## Common Compliance Issues
+
+### Avoid These Mistakes:
+- Generic statements about equity without specific actions
+- Failing to disaggregate data by demographic characteristics
+- Superficial community engagement (one meeting, no follow-up)
+- Ignoring accessibility requirements
+- No language access for non-English speakers
+- Equity as afterthought rather than central design principle
+- Missing documentation of community input
+- No measurable equity goals or tracking
+
+### Red Flags for Reviewers:
+- Project benefits primarily already-served populations
+- No specific outreach plan for underserved communities
+- Barriers to participation not addressed
+- Community engagement not documented
+- No plan for measuring equity outcomes
+- Accessibility accommodations missing or inadequate
+
+## Equity Assessment Framework
+
+When evaluating a project for equity compliance, consider:
+
+1. **Who Benefits?**
+   - Are underserved communities specifically included?
+   - What percentage of beneficiaries are from target groups?
+   - How are benefits distributed?
+
+2. **Who Decides?**
+   - Are underserved communities involved in decision-making?
+   - How is their input incorporated?
+   - Who has power and authority in the project?
+
+3. **Who Is Excluded?**
+   - What barriers might prevent participation?
+   - Are accommodations provided?
+   - How will you reach the hardest-to-reach?
+
+4. **What Changes?**
+   - Does the project address root causes of inequity?
+   - What systemic changes result from the project?
+   - How is long-term impact ensured?
+
+## Continuous Improvement
+
+Equity work is ongoing. Projects should:
+- Regularly assess equity impacts
+- Solicit ongoing community feedback
+- Adjust strategies based on data and input
+- Share lessons learned
+- Build organizational equity capacity
+- Maintain accountability to underserved communities
+
+---
+
+**Implementation Date**: January 20, 2021  
+**Equity Assessment Deadline**: 200 days from order (varied by agency)  
+**Ongoing Requirement**: Annual equity assessments and action plans
+
+This executive order represents a fundamental shift in how federal programs approach equity. Grant programs must proactively advance equity rather than simply avoiding discrimination.
+
+**Remember**: Equity is not treating everyone the same—it's ensuring everyone has what they need to thrive. Projects should be designed with and for underserved communities, removing barriers and advancing opportunities for those who have been historically excluded.
+
+For detailed guidance specific to your grant program, consult your agency's equity action plan and equity team.

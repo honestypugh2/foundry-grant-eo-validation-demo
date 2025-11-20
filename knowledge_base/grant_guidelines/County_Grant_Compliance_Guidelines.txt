@@ -1,0 +1,186 @@
+# Grant Compliance Guidelines for County Departments
+
+## Overview
+
+This document provides guidelines for county departments submitting grant proposals that require compliance review by the legal office. Following these guidelines will expedite the review process and improve approval rates.
+
+## Pre-Submission Checklist
+
+Before submitting a grant proposal for legal review, ensure you have:
+
+- [ ] Completed all required application forms
+- [ ] Identified applicable executive orders and regulations
+- [ ] Conducted preliminary compliance assessment
+- [ ] Gathered all supporting documentation
+- [ ] Consulted with affected communities (if required)
+- [ ] Obtained department head approval
+- [ ] Reviewed budget for allowable costs
+- [ ] Prepared timeline with realistic milestones
+
+## Common Compliance Requirements
+
+### All Grant Proposals Must Address:
+
+1. **Executive Order Compliance**
+   - Climate considerations (EO 14008) if applicable
+   - Cybersecurity requirements (EO 14028) for technology projects
+   - Equity impact (EO 13985) for all programs serving the public
+
+2. **Civil Rights Compliance**
+   - Non-discrimination assurances
+   - Equal opportunity provisions
+   - Accessibility accommodations (ADA compliance)
+   - Language access for limited English proficiency populations
+
+3. **Financial Compliance**
+   - Cost reasonableness and allowability
+   - Matching funds documentation
+   - Indirect cost rate justification
+   - Procurement standards adherence
+
+4. **Programmatic Requirements**
+   - Performance metrics and evaluation plan
+   - Sustainability plan beyond grant period
+   - Risk assessment and mitigation strategies
+   - Quality assurance processes
+
+## Department-Specific Considerations
+
+### Housing and Urban Development
+- Fair Housing Act compliance
+- Lead-based paint regulations
+- Environmental review requirements
+- Relocation assistance provisions
+- Labor standards (Davis-Bacon Act for construction)
+
+### Education and Youth Services
+- Family Educational Rights and Privacy Act (FERPA)
+- Protection of Pupil Rights Amendment
+- Title IX requirements
+- Child safety and background check protocols
+
+### Public Safety and Emergency Management
+- FEMA compliance requirements
+- Interoperability standards
+- Security clearance requirements (if applicable)
+- Emergency operations plan integration
+
+### Health and Human Services
+- HIPAA privacy and security rules
+- Medicaid/Medicare compliance (if applicable)
+- Child welfare reporting requirements
+- Substance abuse confidentiality regulations
+
+## Documentation Best Practices
+
+### Required Documentation:
+1. **Narrative Description**
+   - Clear statement of need
+   - Specific, measurable objectives
+   - Detailed implementation plan
+   - Evaluation methodology
+
+2. **Budget Justification**
+   - Line-item breakdown
+   - Cost calculations and basis
+   - Matching funds sources
+   - Indirect cost explanation
+
+3. **Organizational Capacity**
+   - Track record of similar projects
+   - Staff qualifications
+   - Financial stability documentation
+   - Partnership letters of support
+
+4. **Compliance Documentation**
+   - Civil rights compliance certifications
+   - Environmental assessments (if required)
+   - Consultation records with affected communities
+   - Permits and approvals
+
+## Common Reasons for Legal Review Delays
+
+Avoid these issues:
+- **Incomplete applications**: Missing required sections or attachments
+- **Vague objectives**: Unclear or unmeasurable goals
+- **Budget inconsistencies**: Numbers don't match across documents
+- **Missing compliance certifications**: Required assurances not signed
+- **Inadequate community engagement**: Insufficient consultation documentation
+- **Unrealistic timelines**: Implementation schedule not feasible
+- **Unclear sustainability**: No plan for continuing after grant ends
+
+## Expediting Legal Review
+
+To speed up the review process:
+
+1. **Submit Early**: Allow 2-3 weeks for legal review before grant deadline
+2. **Use Templates**: Utilize provided compliance templates and checklists
+3. **Be Specific**: Provide detailed, specific information rather than generalizations
+4. **Include Citations**: Reference specific executive orders, regulations, or precedents
+5. **Anticipate Questions**: Address potential concerns proactively in your application
+6. **Provide Context**: Explain how your project differs from or builds on previous grants
+
+## Red Flags That Trigger Additional Scrutiny
+
+Legal review will be more intensive if your proposal:
+- Involves new or untested program models
+- Serves vulnerable populations (children, elderly, persons with disabilities)
+- Includes significant construction or capital improvements
+- Requires environmental assessments
+- Involves partnerships with for-profit entities
+- Exceeds $1 million in total funding
+- Has potential for significant public attention or controversy
+
+## Working with Legal Counsel
+
+### When to Consult Legal Early:
+- Innovative or unusual project approaches
+- Questions about eligibility or allowable activities
+- Complex partnership or subcontracting arrangements
+- Concerns about potential compliance issues
+- Previous grant audit findings to address
+
+### What to Bring to Consultation:
+- Draft grant application
+- Funding opportunity announcement
+- List of specific questions or concerns
+- Relevant background documents
+- Timeline and deadlines
+
+## After Legal Approval
+
+Once your grant receives legal approval:
+1. Incorporate any required changes or clarifications
+2. Obtain final signatures before submission
+3. Keep legal office informed if you receive the grant
+4. Consult legal if grant terms change during negotiation
+5. Maintain compliance throughout grant performance period
+
+## Resources
+
+### Internal Resources:
+- Legal Office Grant Compliance Team: [contact info]
+- County Grants Management Office: [contact info]
+- Department Equity Officers: [by department]
+- Finance Office (for budget questions): [contact info]
+
+### External Resources:
+- Grants.gov
+- Federal agency grant program offices
+- Catalog of Federal Domestic Assistance (CFDA)
+- Council on Governmental Relations (COGR)
+
+## Questions?
+
+Contact the Legal Office Grant Compliance Team:
+- Email: [email protected]
+- Phone: (555) 123-4567
+- Office Hours: Monday-Friday, 8:00 AM - 5:00 PM
+
+**Remember**: Early consultation with legal counsel can prevent delays and improve your proposal's quality. Don't wait until the last minute!
+
+---
+
+**Last Updated**: November 2025  
+**Next Review**: May 2026  
+**Version**: 2.1

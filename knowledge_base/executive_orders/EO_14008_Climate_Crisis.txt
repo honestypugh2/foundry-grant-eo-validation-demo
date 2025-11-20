@@ -1,0 +1,116 @@
+# Executive Order 14008: Tackling the Climate Crisis at Home and Abroad
+
+**Signed:** January 27, 2021  
+**Federal Register Number:** 86 FR 7619  
+**Status:** Active
+
+## Overview
+
+This executive order places the climate crisis at the center of United States foreign policy and national security. It establishes a government-wide approach to combating the climate crisis through clean energy deployment, conservation, and environmental justice.
+
+## Key Provisions
+
+### Section 1: Policy
+
+It is the policy of my Administration to organize and deploy the full capacity of its agencies to combat the climate crisis to implement a Government-wide approach that reduces climate pollution in every sector of the economy; increases resilience to the impacts of climate change; protects public health; conserves our lands, waters, and biodiversity; delivers environmental justice; and spurs well-paying union jobs and economic growth.
+
+### Section 2: Climate Action Across All Government Operations
+
+All agencies shall immediately commence work to:
+
+1. **Assess Climate-Related Risks**: Evaluate and address the climate-related financial risk to federal programs and operations
+2. **Greenhouse Gas Emissions**: Achieve net-zero emissions from federal operations by 2050, including a 65% reduction by 2030
+3. **Clean Energy**: Transition to 100% carbon pollution-free electricity by 2030
+4. **Sustainable Buildings**: Prioritize investments in sustainable, resilient infrastructure
+
+### Section 3: Climate Considerations in Grant Programs
+
+Federal agencies that administer grant programs shall:
+
+- Prioritize projects that incorporate climate resilience and adaptation measures
+- Give preference to projects utilizing renewable energy sources
+- Require climate risk assessments for major infrastructure projects
+- Consider environmental justice implications in grant evaluations
+- Ensure equitable distribution of climate benefits to disadvantaged communities
+
+## Compliance Requirements for Grant Applicants
+
+### Mandatory Elements:
+
+1. **Climate Risk Assessment**
+   - Identify climate-related risks to the proposed project
+   - Document adaptation strategies
+   - Assess vulnerability to extreme weather events
+
+2. **Greenhouse Gas Emissions Analysis**
+   - Calculate projected emissions from project operations
+   - Develop emissions reduction plan
+   - Set measurable emissions reduction targets
+
+3. **Renewable Energy Integration**
+   - Demonstrate incorporation of renewable energy where feasible
+   - Document energy efficiency measures
+   - Provide justification if renewables are not included
+
+4. **Environmental Justice Considerations**
+   - Assess impacts on disadvantaged communities
+   - Demonstrate equitable distribution of benefits
+   - Include community engagement documentation
+
+### Preferred Characteristics:
+
+- Projects that create clean energy jobs
+- Initiatives supporting climate resilience in vulnerable communities
+- Programs that reduce dependence on fossil fuels
+- Infrastructure incorporating green building standards
+- Conservation and ecosystem restoration components
+
+## Grant Evaluation Criteria
+
+Projects will be evaluated based on:
+
+1. **Climate Impact** (30%): Contribution to emissions reduction and climate resilience
+2. **Feasibility** (25%): Technical and financial viability of climate measures
+3. **Equity** (20%): Benefits to disadvantaged and frontline communities
+4. **Innovation** (15%): Novel approaches to climate solutions
+5. **Co-benefits** (10%): Additional environmental, health, and economic benefits
+
+## Documentation Requirements
+
+Applicants must submit:
+
+- Climate risk and resilience assessment report
+- Greenhouse gas emissions calculations and reduction plan
+- Renewable energy feasibility study (if applicable)
+- Environmental justice impact analysis
+- Community consultation records
+- Sustainability plan beyond grant period
+
+## Definitions
+
+**Climate Pollution**: Greenhouse gas emissions contributing to climate change, including carbon dioxide, methane, and other heat-trapping gases.
+
+**Environmental Justice**: The fair treatment and meaningful involvement of all people regardless of race, color, national origin, or income with respect to the development and implementation of environmental laws, regulations, and policies.
+
+**Renewable Energy**: Energy from sources that are naturally replenishing, including solar, wind, geothermal, and sustainable biomass.
+
+## Related Orders and Regulations
+
+- Executive Order 14030: Climate-Related Financial Risk
+- Executive Order 13990: Protecting Public Health and Environment
+- Presidential Memorandum on Modernizing Regulatory Review
+
+## Contact Information
+
+For questions about climate compliance in grant applications:
+- Office of Federal Sustainability
+- Council on Environmental Quality
+- Agency-specific climate officers
+
+---
+
+**Implementation Date**: February 1, 2021  
+**Review Date**: Ongoing  
+**Sunset Clause**: None (ongoing requirement)
+
+This executive order remains in full force and effect. Grant programs implemented after this date must incorporate these climate considerations into their review processes.

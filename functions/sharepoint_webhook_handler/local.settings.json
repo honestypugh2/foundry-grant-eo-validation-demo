@@ -1,0 +1,16 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "SHAREPOINT_CLIENT_ID": "",
+    "SHAREPOINT_CLIENT_SECRET": "",
+    "AZURE_TENANT_ID": "",
+    "WEBHOOK_CLIENT_STATE": "your-secret-state-value",
+    "AZURE_SEARCH_ENDPOINT": "",
+    "AZURE_SEARCH_API_KEY": "",
+    "AZURE_SEARCH_INDEX_NAME": "grant-compliance-index",
+    "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT": "",
+    "AZURE_DOCUMENT_INTELLIGENCE_API_KEY": ""
+  }
+}
