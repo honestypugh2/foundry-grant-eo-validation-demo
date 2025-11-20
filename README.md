@@ -301,6 +301,63 @@ sentiment_score = text_analytics_client.analyze_sentiment(document_text)
 risk_factors.append({"factor": "negative_sentiment", "weight": 0.1})
 ```
 
+### Critical: Document Ingestion & Summarization Customization
+
+⚠️ **The Document Ingestion and Summarization agents are foundational to the entire workflow.** These agents determine what information is extracted from PDFs and how it's structured—directly impacting downstream compliance analysis, risk scoring, and citation accuracy.
+
+**Why Customization Matters:**
+- **Complex PDF Variability**: Grant proposals vary widely in structure, formatting, and content organization
+- **Downstream Dependencies**: Compliance and risk agents rely on the quality and completeness of extracted information
+- **Garbage In, Garbage Out**: Poor document extraction leads to missed compliance requirements, inaccurate citations, and unreliable risk scores
+
+**What You Should Review & Customize:**
+
+**Document Structure Extraction**
+- Which sections are critical? (Budget, Timeline, Scope, Objectives, Compliance Statements)
+- How are sections identified? (Headers, page breaks, table of contents)
+- Example: Configure `document_ingestion_agent.py` to prioritize "Compliance Plan" and "Budget Narrative" sections
+
+**Content Processing Requirements**
+- Do you need tables extracted? (Budget tables, staffing plans, performance metrics)
+- Are images/charts important? (Project diagrams, site maps, organizational charts)
+- Should form fields be preserved? (Standard grant application forms)
+- Example: Enable table extraction in Azure Document Intelligence: `features=["tables", "keyValuePairs"]`
+
+**Text Extraction Strategies**
+- OCR quality settings for scanned documents (DPI, language detection)
+- Layout preservation vs. pure text extraction
+- Handling multi-column formats, footnotes, headers/footers
+- Example: Adjust `read_order="natural"` in Document Intelligence for logical reading flow
+
+**Summarization Focus**
+- Which content should summaries emphasize? (Compliance statements, budget, deliverables)
+- What level of detail? (High-level overview vs. section-by-section breakdown)
+- Should original citations be preserved in summaries?
+- Example: Modify `summarization_agent.py` prompt to highlight compliance-related text:
+  ```python
+  summary_prompt = """
+  Summarize this grant proposal with emphasis on:
+  1. Explicit compliance statements and executive order references
+  2. Budget allocation and timeline commitments
+  3. Measurable outcomes and performance metrics
+  Preserve exact phrases related to legal/regulatory compliance.
+  """
+  ```
+
+**Impact on Downstream Workflow:**
+- **Compliance Agent**: Relies on extracted compliance statements and section structure
+- **Risk Scoring Agent**: Uses budget data, timeline information, and completeness metrics
+- **Citation Display**: Depends on accurate section identification and text mapping
+- **Email Notifications**: Includes summary content and key extracted information
+
+**Recommended Approach:**
+1. **Analyze Sample Documents**: Review 5-10 representative grant proposals to identify patterns
+2. **Define Extraction Requirements**: Document which sections, tables, and content types are essential
+3. **Configure Document Intelligence**: Adjust OCR and extraction settings based on document types
+4. **Test Extraction Quality**: Validate that critical information is captured accurately
+5. **Iterate Summarization**: Refine prompts to produce summaries that support downstream analysis
+6. **Measure Impact**: Evaluate how extraction changes affect compliance accuracy and risk scores
+
 ### Best Practices
 
 - **Version Control**: Track prompt changes in git for A/B testing

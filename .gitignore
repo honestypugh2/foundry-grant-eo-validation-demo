@@ -127,3 +127,33 @@ Thumbs.db
 # Temp files
 *.tmp
 *.temp
+
+# Sample Data - Exclude original 19 executive orders, keep 3 synthetic ones
+# Keep: EO-14087, EO-14096, EO-14102 (our synthetic executive orders)
+# Exclude: All other EO PDFs
+knowledge_base/sample_executive_orders/EO-14151*.pdf
+knowledge_base/sample_executive_orders/EO-14158*.pdf
+knowledge_base/sample_executive_orders/EO-14168*.pdf
+knowledge_base/sample_executive_orders/EO-14173*.pdf
+knowledge_base/sample_executive_orders/EO-14174*.pdf
+knowledge_base/sample_executive_orders/EO-14194*.pdf
+knowledge_base/sample_executive_orders/EO-14202*.pdf
+knowledge_base/sample_executive_orders/EO-14218*.pdf
+knowledge_base/sample_executive_orders/EO-14219*.pdf
+knowledge_base/sample_executive_orders/EO-14222*.pdf
+knowledge_base/sample_executive_orders/EO-14224*.pdf
+knowledge_base/sample_executive_orders/EO-14227*.pdf
+knowledge_base/sample_executive_orders/EO-14236*.pdf
+knowledge_base/sample_executive_orders/EO-14239*.pdf
+knowledge_base/sample_executive_orders/EO-14248*.pdf
+knowledge_base/sample_executive_orders/EO-14249*.pdf
+knowledge_base/sample_executive_orders/EO-14263*.pdf
+knowledge_base/sample_executive_orders/EO-14281*.pdf
+knowledge_base/sample_executive_orders/EO-14287*.pdf
+
+# Sample Proposals - Exclude original 2 proposals, keep 3 synthetic ones
+# Keep: Community_Health_Access_Expansion_2024.pdf, Green_Infrastructure_Resilience_Project_2024.pdf, Workforce_Skills_Training_Initiative_2024.pdf
+# Exclude: Original VCLG proposals
+knowledge_base/sample_proposals/2024-0731*.pdf
+knowledge_base/sample_proposals/VCLG*.pdf
+
