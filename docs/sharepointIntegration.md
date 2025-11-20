@@ -159,12 +159,19 @@ content = sp_access.get_document_content(
 ### Integration with Compliance Agent
 
 ```python
-from agents.compliance_validator_agent import ComplianceValidatorAgent
+from agents.compliance_agent import ComplianceAgent
 from scripts.sharepoint_integration import SharePointDocumentAccess
 
 # Initialize
 sp_access = SharePointDocumentAccess()
-compliance_agent = ComplianceValidatorAgent(use_azure=True)
+compliance_agent = ComplianceAgent(
+    project_endpoint=os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT"),
+    model_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+    search_index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"),
+    azure_search_document_truncation_size=2000,
+    use_managed_identity=False
+)
 
 # Search for executive orders in SharePoint
 eo_results = sp_access.search_sharepoint_documents(

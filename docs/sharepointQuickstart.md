@@ -114,16 +114,21 @@ print(libraries)  # ['GrantProposals', 'ExecutiveOrders', 'Documents']
 ### Enable SharePoint in Compliance Agent
 
 ```python
-from agents.compliance_validator_agent import ComplianceValidatorAgent
+import os
+from agents.compliance_agent import ComplianceAgent
 
-# Initialize with SharePoint enabled
-agent = ComplianceValidatorAgent(
-    use_azure=True,
-    use_sharepoint=True  # Enable SharePoint access
+# Initialize ComplianceAgent with Azure AI Foundry
+agent = ComplianceAgent(
+    project_endpoint=os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT"),
+    model_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+    search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+    search_index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"),
+    azure_search_document_truncation_size=2000,
+    use_managed_identity=False
 )
 
-# Agent will now search SharePoint for executive orders
-result = agent.validate_compliance(proposal_text)
+# Analyze grant proposal for compliance
+result = await agent.analyze_proposal(proposal_text)
 ```
 
 ## Troubleshooting
