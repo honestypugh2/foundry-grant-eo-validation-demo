@@ -341,6 +341,9 @@ Note: Document metadata has already been extracted using Azure Document Intellig
             if chunk.text:
                 response_text += chunk.text
 
+        # Extract citations from thread messages after run completes
+        citations = await self._extract_citations_from_thread(agent, thread)
+
         # Parse response into structured format
         # In production, you might want to use structured outputs or JSON mode
         result = {
@@ -348,6 +351,7 @@ Note: Document metadata has already been extracted using Azure Document Intellig
             "confidence_score": self._extract_confidence_score(response_text),
             "status": self._extract_status(response_text),
             "relevant_executive_orders": self._extract_relevant_executive_orders(response_text),
+            "citations": citations,
             "thread_id": None,
         }
 
@@ -426,6 +430,86 @@ Note: Document metadata has already been extracted using Azure Document Intellig
             })
         
         return executive_orders
+
+    async def _extract_citations_from_thread(self, agent: ChatAgent, thread) -> list:
+        """
+        Extract citations from the agent's thread messages.
+        
+        The Agent Framework automatically creates citations when tools return document content.
+        This method attempts to retrieve them from the thread.
+        
+        Note: Citation extraction from the Agent Framework is not fully supported yet.
+        We return an empty list and rely on the search_knowledge_base tool results 
+        being referenced in the analysis text.
+        """
+        citations_list = []
+        
+        try:
+            # Attempt 1: Check if thread has a messages attribute directly
+            if hasattr(thread, 'messages') and thread.messages:
+                for message in thread.messages:
+                    if hasattr(message, 'annotations') and message.annotations:
+                        for annotation in message.annotations:
+                            if isinstance(annotation, CitationAnnotation):
+                                citations_list.append(annotation)
+            
+            # Attempt 2: Check if thread has a method to get messages
+            elif hasattr(thread, 'get_messages'):
+                messages = await thread.get_messages()
+                for message in messages:
+                    if hasattr(message, 'annotations') and message.annotations:
+                        for annotation in message.annotations:
+                            if isinstance(annotation, CitationAnnotation):
+                                citations_list.append(annotation)
+                                
+        except Exception as e:
+            # Citation extraction failed - this is expected behavior
+            # The tool output is still visible in the analysis text
+            print(f"Info: Citation auto-extraction not available: {e}")
+            return []
+        
+        # Format citations for API response
+        if citations_list:
+            return self._format_citations(citations_list)
+        
+        return []
+
+    def _format_citations(self, citations: list) -> list:
+        """
+        Format citation annotations for frontend display.
+        
+        Converts Agent Framework CitationAnnotation objects into
+        dictionaries with all relevant metadata including page numbers.
+        """
+        formatted_citations = []
+        
+        for citation in citations:
+            # Convert CitationAnnotation to dictionary
+            citation_dict = {
+                'title': citation.title if hasattr(citation, 'title') else 'Untitled',
+                'url': citation.url if hasattr(citation, 'url') else None,
+                'file_id': citation.file_id if hasattr(citation, 'file_id') else None,
+                'tool_name': citation.tool_name if hasattr(citation, 'tool_name') else None,
+                'snippet': citation.snippet if hasattr(citation, 'snippet') else None,
+                'annotated_regions': [],
+                'additional_properties': {}
+            }
+            
+            # Extract annotated regions (text spans)
+            if hasattr(citation, 'annotated_regions') and citation.annotated_regions:
+                for region in citation.annotated_regions:
+                    citation_dict['annotated_regions'].append({
+                        'start_index': region.start_index if hasattr(region, 'start_index') else 0,
+                        'end_index': region.end_index if hasattr(region, 'end_index') else 0
+                    })
+            
+            # Extract additional properties (including page_number)
+            if hasattr(citation, 'additional_properties') and citation.additional_properties:
+                citation_dict['additional_properties'] = dict(citation.additional_properties)
+            
+            formatted_citations.append(citation_dict)
+        
+        return formatted_citations
 
 
     async def cleanup(self):

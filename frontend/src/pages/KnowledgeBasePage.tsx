@@ -1,11 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 
+interface ExecutiveOrder {
+  name: string;
+  type: string;
+  eo_number?: string;
+  category?: string;
+}
+
 interface KnowledgeBaseInfo {
+  source: string;
   executive_orders_count: number;
   sample_proposals_count: number;
-  executive_orders: string[];
+  executive_orders: ExecutiveOrder[] | string[]; // Support both formats
   sample_proposals: string[];
+  index_name?: string;
 }
 
 const KnowledgeBasePage: React.FC = () => {
@@ -89,6 +98,11 @@ const KnowledgeBasePage: React.FC = () => {
           <p className="text-sm text-gray-500 mt-2">
             Available for compliance checking
           </p>
+          {kbInfo?.source && (
+            <p className="text-xs text-gray-400 mt-1">
+              Source: {kbInfo.source === 'azure' ? '☁️ Azure AI Search' : '💾 Local Files'}
+            </p>
+          )}
         </div>
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold mb-2">Sample Proposals</h3>
@@ -111,11 +125,15 @@ const KnowledgeBasePage: React.FC = () => {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-azure-500 focus:border-transparent mb-6"
         >
           <option value="">-- Select an executive order --</option>
-          {kbInfo?.executive_orders.map((eo) => (
-            <option key={eo} value={eo}>
-              {eo.replace(/_/g, ' ')}
-            </option>
-          ))}
+          {kbInfo?.executive_orders.map((eo) => {
+            const eoName = typeof eo === 'string' ? eo : eo.name;
+            const eoType = typeof eo === 'string' ? '' : eo.type;
+            return (
+              <option key={eoName} value={eoName}>
+                {eoName.replace(/_/g, ' ')} {eoType === 'indexed' ? '(Azure)' : ''}
+              </option>
+            );
+          })}
         </select>
 
         {eoContent && (

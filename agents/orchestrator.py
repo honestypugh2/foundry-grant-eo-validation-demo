@@ -141,7 +141,8 @@ class AgentOrchestrator:
                 'confidence_score': compliance_analysis['confidence_score'],
                 'violations': [],
                 'warnings': [],
-                'relevant_executive_orders': compliance_analysis.get('relevant_executive_orders', [])
+                'relevant_executive_orders': compliance_analysis.get('relevant_executive_orders', []),
+                'citations': compliance_analysis.get('citations', [])  # Include citations
             }
             
             workflow_results['steps']['compliance'] = {

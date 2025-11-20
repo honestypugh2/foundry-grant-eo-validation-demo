@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 import tempfile
 import logging
+from typing import Dict, Any
 from dotenv import load_dotenv
 
 # Add parent directory to path
@@ -26,6 +27,11 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Knowledge base configuration
+KNOWLEDGE_BASE_SOURCE = os.getenv('KNOWLEDGE_BASE_SOURCE', 'local').lower()
+KNOWLEDGE_BASE_PATH = Path(os.getenv('KNOWLEDGE_BASE_PATH', './knowledge_base'))
+EXECUTIVE_ORDERS_PATH = Path(os.getenv('KNOWLEDGE_BASE_EXECUTIVE_ORDERS_PATH', './knowledge_base/sample_executive_orders'))
 
 # Create FastAPI app
 app = FastAPI(
@@ -205,36 +211,122 @@ async def process_sample_document(request: ProcessSampleRequest):
 
 @app.get("/api/knowledge-base")
 async def get_knowledge_base_info():
-    """Get information about the knowledge base."""
+    """Get information about the knowledge base (Azure AI Search or Local)."""
     try:
-        kb_path = Path(__file__).parent.parent / 'knowledge_base'
-        
-        # Count executive orders
-        eo_dir = kb_path / 'sample_executive_orders'
-        eo_files = list(eo_dir.glob('*.txt')) + list(eo_dir.glob('*.pdf'))
-        
-        # Count sample proposals
-        sample_dir = kb_path / 'sample_proposals'
-        sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt'))
-        
-        return {
-            'executive_orders_count': len(eo_files),
-            'sample_proposals_count': len(sample_files),
-            'executive_orders': [f.stem for f in eo_files],
-            'sample_proposals': [f.name for f in sample_files]
-        }
+        if KNOWLEDGE_BASE_SOURCE == 'azure':
+            return await _get_knowledge_base_from_azure()
+        else:
+            return await _get_knowledge_base_from_local()
         
     except Exception as e:
         logger.error(f"Error getting knowledge base info: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _get_knowledge_base_from_local() -> Dict[str, Any]:
+    """Get knowledge base information from local file system."""
+    kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+    
+    # Count executive orders
+    eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
+    eo_files = list(eo_dir.glob('*.txt')) + list(eo_dir.glob('*.pdf'))
+    
+    # Count sample proposals
+    sample_dir = kb_path / 'sample_proposals'
+    sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt'))
+    
+    return {
+        'source': 'local',
+        'executive_orders_count': len(eo_files),
+        'sample_proposals_count': len(sample_files),
+        'executive_orders': [{'name': f.stem, 'type': f.suffix[1:]} for f in eo_files],
+        'sample_proposals': [f.name for f in sample_files]
+    }
+
+
+async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
+    """Get knowledge base information from Azure AI Search."""
+    try:
+        from azure.core.credentials import AzureKeyCredential
+        from azure.search.documents import SearchClient
+        from azure.identity import DefaultAzureCredential
+        
+        search_endpoint = os.getenv('AZURE_SEARCH_ENDPOINT')
+        search_index = os.getenv('AZURE_SEARCH_INDEX_NAME', 'grant-compliance-index')
+        use_managed_identity = os.getenv('USE_MANAGED_IDENTITY', 'false').lower() == 'true'
+        
+        if not search_endpoint:
+            raise HTTPException(
+                status_code=503,
+                detail="Azure AI Search not configured. Set AZURE_SEARCH_ENDPOINT in .env"
+            )
+        
+        # Set up credentials
+        if use_managed_identity:
+            credential = DefaultAzureCredential()
+        else:
+            search_key = os.getenv('AZURE_SEARCH_API_KEY')
+            if not search_key:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Azure AI Search API key not configured"
+                )
+            credential = AzureKeyCredential(search_key)
+        
+        # Initialize search client
+        search_client = SearchClient(
+            endpoint=search_endpoint,
+            index_name=search_index,
+            credential=credential
+        )
+        
+        # Query for executive orders
+        eo_results = list(search_client.search(
+            search_text="*",
+            filter="document_type eq 'executive_order'",
+            select=["title", "executive_order_number", "category"],
+            top=1000
+        ))
+        
+        executive_orders = [
+            {
+                'name': doc.get('title', 'Unknown'),
+                'type': 'indexed',
+                'eo_number': doc.get('executive_order_number'),
+                'category': doc.get('category')
+            }
+            for doc in eo_results
+        ]
+        
+        return {
+            'source': 'azure',
+            'index_name': search_index,
+            'executive_orders_count': len(eo_results),
+            'sample_proposals_count': 0,  # Proposals are processed on-demand, not indexed
+            'executive_orders': executive_orders,
+            'sample_proposals': []
+        }
+        
+    except ImportError:
+        logger.error("Azure Search packages not installed. Run: pip install azure-search-documents azure-identity")
+        raise HTTPException(
+            status_code=503,
+            detail="Azure Search packages not installed"
+        )
+    except Exception as e:
+        logger.error(f"Error connecting to Azure AI Search: {str(e)}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Failed to connect to Azure AI Search: {str(e)}"
+        )
+
+
 @app.get("/api/knowledge-base/executive-order/{name}")
 async def get_executive_order(name: str):
-    """Get content of a specific executive order."""
+    """Get content of a specific executive order (Local file system only)."""
     try:
-        kb_path = Path(__file__).parent.parent / 'knowledge_base'
-        eo_dir = kb_path / 'sample_executive_orders'
+        kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+        eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
         
         # Find the file (could be .txt or .pdf)
         eo_files = list(eo_dir.glob(f"{name}.*"))
@@ -301,10 +393,10 @@ async def get_sample_proposals():
 
 @app.get("/api/knowledge-base/download/{name}")
 async def download_executive_order(name: str):
-    """Download a PDF executive order."""
+    """Download a PDF executive order (Local file system only)."""
     try:
-        kb_path = Path(__file__).parent.parent / 'knowledge_base'
-        eo_dir = kb_path / 'sample_executive_orders'
+        kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+        eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
         
         # Find the PDF file
         pdf_file = eo_dir / f"{name}.pdf"
