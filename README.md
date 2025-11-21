@@ -387,6 +387,7 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 
 ### Development Environment
 - Python 3.10 or higher
+- [uv](https://docs.astral.sh/uv/) - Fast Python package installer (recommended)
 - Azure CLI installed and configured
 - Visual Studio Code (recommended)
 - Git
@@ -434,17 +435,14 @@ cd foundry-grant-eo-validation-demo
 #### 2. Install Dependencies
 
 ```bash
-python -m venv .venv
+# Install dependencies using uv
+uv sync
+
+# Activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install Python dependencies (use --pre flag for Agent Framework preview)
-pip install -r requirements.txt
-
-# Install Agent Framework with Azure AI support (preview)
-pip install agent-framework-azure-ai --pre
 ```
 
-> **Note**: The `--pre` flag is required while Agent Framework is in preview.
+> **Note**: `uv` automatically creates a virtual environment and installs all dependencies from `pyproject.toml`.
 
 ### 3. Configure Environment
 

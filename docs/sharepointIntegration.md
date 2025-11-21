@@ -111,10 +111,10 @@ AZURE_AI_PROJECT_ENDPOINT=https://your-resource.services.ai.azure.com/api/projec
 
 ```bash
 # Install Azure AI Projects SDK
-pip install azure-ai-projects
+uv pip install azure-ai-projects
 
 # Install Azure Identity
-pip install azure-identity
+uv pip install azure-identity
 ```
 
 ### Step 6: Test the Integration
@@ -363,7 +363,7 @@ Configure SharePoint columns for better organization:
 
 **Solutions**:
 ```bash
-pip install azure-ai-projects azure-identity
+uv pip install azure-ai-projects azure-identity
 ```
 
 ### Debug Mode

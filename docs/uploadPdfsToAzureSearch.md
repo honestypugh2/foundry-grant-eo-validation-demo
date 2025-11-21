@@ -66,7 +66,7 @@ az cognitiveservices account keys list \
 ### 4. Install Required Packages
 
 ```bash
-pip install azure-search-documents azure-ai-documentintelligence PyPDF2 python-dotenv
+uv pip install azure-search-documents azure-ai-documentintelligence PyPDF2 python-dotenv
 ```
 
 ---

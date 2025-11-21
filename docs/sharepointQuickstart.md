@@ -149,7 +149,7 @@ result = await agent.analyze_proposal(proposal_text)
 
 **Solution**: Install dependencies
 ```bash
-pip install azure-ai-projects azure-identity
+uv pip install azure-ai-projects azure-identity
 ```
 
 ## Full Documentation

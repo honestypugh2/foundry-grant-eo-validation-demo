@@ -61,16 +61,13 @@ If you prefer step-by-step control:
 # From project root
 cd backend
 
-# Create virtual environment
-python -m venv .venv
+# Install dependencies using uv
+uv sync
 
 # Activate virtual environment
 source .venv/bin/activate  # Linux/Mac
 # OR
 .venv\Scripts\activate     # Windows
-
-# Install dependencies
-pip install -r requirements.txt
 
 # Start FastAPI server
 python main.py
@@ -197,7 +194,9 @@ npm install
 ```bash
 cd backend
 source .venv/bin/activate  # Activate venv first!
-pip install -r requirements.txt
+uv pip install -r requirements.txt
+# Or use uv sync to install from pyproject.toml
+uv sync
 ```
 
 ---
@@ -220,7 +219,7 @@ npm run format
 
 # Backend (Black)
 cd backend
-pip install black
+uv pip install black
 black .
 ```
 

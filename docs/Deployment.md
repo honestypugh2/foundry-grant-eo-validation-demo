@@ -45,10 +45,13 @@ This guide provides comprehensive instructions for deploying the Grant Proposal 
    npm --version
    ```
 
-4. **Python** (3.10 or higher)
+4. **Python** (3.10 or higher) and **uv**
    ```bash
    python --version
-   pip --version
+   uv --version
+   
+   # Install uv if not already installed
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
 5. **Git**
@@ -77,13 +80,11 @@ cd foundry-grant-eo-validation-demo
 ### 2. Install Dependencies
 
 ```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Install dependencies using uv
+uv sync
 
-# Install Python dependencies
-pip install -r requirements.txt
-pip install agent-framework-azure-ai --pre
+# Activate virtual environment
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install frontend dependencies
 cd frontend
@@ -308,7 +309,7 @@ cd backend
 # Create startup script
 cat > startup.sh << 'EOF'
 #!/bin/bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 python -m uvicorn main:app --host 0.0.0.0 --port 8000
 EOF
 
@@ -351,10 +352,13 @@ jobs:
         with:
           python-version: '3.10'
       
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      
       - name: Install dependencies
         run: |
           cd backend
-          pip install -r requirements.txt
+          uv pip install -r requirements.txt
       
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
@@ -427,7 +431,7 @@ jobs:
 cd functions/email_notifier
 
 # Install dependencies
-pip install -r requirements.txt --target .python_packages/lib/site-packages
+uv pip install -r requirements.txt --target .python_packages/lib/site-packages
 
 # Deploy function
 func azure functionapp publish func-grant-compliance-email
