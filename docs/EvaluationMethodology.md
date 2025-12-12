@@ -1,10 +1,13 @@
 # Evaluation Methodology for Grant Compliance Automation System
 
 > **Comprehensive evaluation framework for measuring quality, safety, and performance of AI agents**  
-> **Based on**: [Azure AI Foundry Observability Best Practices](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/observability?view=foundry-classic)
+> **Based on**:  
+> - [Azure AI Foundry Observability Best Practices](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/observability?view=foundry-classic)  
+> - [MLOps and GenAIOps for AI Workloads](https://learn.microsoft.com/en-us/azure/well-architected/ai/mlops-genaiops)  
+> - [GenAIOps for Organizations with MLOps Investments](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/genaiops-for-mlops)
 
 **Last Updated**: December 11, 2025  
-**Document Version**: 1.0
+**Document Version**: 1.1
 
 ---
 
@@ -12,11 +15,14 @@
 
 - [Overview](#overview)
 - [Evaluation Strategy](#evaluation-strategy)
+- [GenAIOps Maturity Model](#genaiops-maturity-model)
 - [Agent-Level Evaluation](#agent-level-evaluation)
 - [System-Level Evaluation](#system-level-evaluation)
 - [Evaluation Metrics](#evaluation-metrics)
 - [Implementation Guide](#implementation-guide)
+- [Deployment Pipeline Integration](#deployment-pipeline-integration)
 - [Continuous Monitoring](#continuous-monitoring)
+- [Model Maintenance and Drift Prevention](#model-maintenance-and-drift-prevention)
 - [Tools and Resources](#tools-and-resources)
 
 ---
@@ -48,6 +54,9 @@ The system follows Azure AI Foundry's **three-stage evaluation lifecycle**:
 - **Traceability**: Every compliance finding must cite specific sources
 - **Measurable Quality**: Quantitative metrics for continuous improvement
 - **Safety First**: Zero tolerance for harmful, biased, or fabricated content
+- **Automation-First**: Automate data processing, model deployment, and monitoring for repeatability
+- **Reproducibility**: Version control for prompts, data pipelines, and evaluation results
+- **Continuous Evolution**: Regular review and improvement of operations with maturity progression
 
 ---
 
@@ -92,6 +101,78 @@ The system follows Azure AI Foundry's **three-stage evaluation lifecycle**:
 | **Safety** | No harmful, biased, or inappropriate content | All agents |
 | **Latency** | Response time for attorney workflows | All agents |
 | **Cost Efficiency** | Token usage optimization | All agents |
+
+---
+
+## GenAIOps Maturity Model
+
+### Maturity Assessment
+
+The Grant Compliance Automation system follows the [GenAIOps Maturity Model](https://learn.microsoft.com/en-us/azure/machine-learning/prompt-flow/concept-llmops-maturity) to measure operational excellence. Use the [GenAIOps Maturity Model Assessment](https://learn.microsoft.com/en-us/assessments/e14e1e9f-d339-4d7e-b2bb-24f056cf08b6/) to track progress.
+
+### Maturity Levels
+
+| Level | Characteristics | Grant Compliance System Status |
+|-------|----------------|--------------------------------|
+| **Level 0: No MLOps** | Manual builds, no tracking, tribal knowledge | ❌ Not applicable |
+| **Level 1: DevOps, No MLOps** | Releases automated, no experiment tracking, models updated manually | ⚠️ Initial setup |
+| **Level 2: Automated Training** | Training environment automated, experiment tracking, model registry | ✅ **Current target** |
+| **Level 3: Automated Deployment** | Easy model deployment, A/B testing, model performance tracking | 🎯 **Next milestone** |
+| **Level 4: Full MLOps Automation** | Automated retraining, continuous evaluation, automated rollback | 🔮 **Future goal** |
+
+### Current System Maturity: Level 2
+
+**Achieved**:
+- ✅ Automated data processing pipelines (DocumentIngestionAgent)
+- ✅ Experiment tracking via Azure AI Foundry
+- ✅ Model registry (GPT-4o deployment in Azure OpenAI)
+- ✅ Version control for agent prompts and configurations
+- ✅ Automated testing framework (`tests/` directory)
+
+**In Progress (Level 3 Goals)**:
+- 🔄 Automated deployment pipelines (CI/CD integration)
+- 🔄 A/B testing for prompt variations
+- 🔄 Automated model performance monitoring
+- 🔄 Blue-green deployment for orchestrator updates
+
+**Future (Level 4 Goals)**:
+- ⏳ Automated model retraining based on attorney feedback
+- ⏳ Continuous evaluation with auto-remediation
+- ⏳ Automated rollback on quality degradation
+- ⏳ Self-improving prompt optimization
+
+### GenAIOps vs. MLOps: Key Differences
+
+For this RAG-based compliance system:
+
+| Aspect | Traditional MLOps | GenAIOps (This System) |
+|--------|-------------------|------------------------|
+| **Primary Asset** | Trained model | Orchestrator + prompts + knowledge base |
+| **Training Focus** | Model training from scratch | Prompt engineering + RAG optimization |
+| **Data Operations** | Feature engineering | Document chunking, embedding, indexing |
+| **Deployment Unit** | Model artifact | Orchestrator + vector index + prompts |
+| **Evaluation Metrics** | Accuracy, precision, recall | Groundedness, relevance, citation accuracy |
+| **Model Updates** | Retrain on new data | Update prompts, refresh knowledge base |
+
+### Recommended Actions for Maturity Progression
+
+**Immediate (Next 30 Days)**:
+1. Implement automated deployment pipeline with Azure DevOps/GitHub Actions
+2. Set up A/B testing framework for prompt variations
+3. Configure automated alerts for quality threshold violations
+4. Document all agent configurations in version control
+
+**Short-term (Next 90 Days)**:
+1. Implement blue-green deployment for zero-downtime updates
+2. Establish automated knowledge base refresh pipeline
+3. Create attorney feedback collection and integration system
+4. Set up scheduled evaluation runs with regression detection
+
+**Long-term (Next 180 Days)**:
+1. Build automated prompt optimization based on attorney corrections
+2. Implement continuous retraining pipeline for RAG improvements
+3. Develop automated rollback triggers on quality degradation
+4. Establish comprehensive GenAIOps observability dashboard
 
 ---
 
@@ -913,6 +994,287 @@ View:
 
 ---
 
+## Deployment Pipeline Integration
+
+### CI/CD Pipeline for GenAIOps
+
+Integrate evaluation into deployment pipelines to ensure quality gates before production promotion.
+
+#### Azure DevOps Pipeline Example
+
+```yaml
+# azure-pipelines.yml
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: DataOps
+    displayName: 'Data Processing & Validation'
+    jobs:
+      - job: IndexKnowledgeBase
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+          
+          - script: |
+              pip install -r requirements.txt
+            displayName: 'Install dependencies'
+          
+          - script: |
+              python scripts/index_knowledge_base.py --validate
+            displayName: 'Validate and index executive orders'
+          
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFiles: '**/knowledge-base-validation.xml'
+              testRunTitle: 'Knowledge Base Validation'
+
+  - stage: Evaluation
+    displayName: 'Agent Evaluation'
+    dependsOn: DataOps
+    jobs:
+      - job: AgentEvaluation
+        steps:
+          - script: |
+              python tests/evaluate_compliance_agent.py
+              python tests/evaluate_risk_scoring_agent.py
+              python tests/evaluate_end_to_end_workflow.py
+            displayName: 'Run agent evaluations'
+          
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFiles: '**/evaluation-results.xml'
+              testRunTitle: 'Agent Evaluation Results'
+          
+          - script: |
+              python scripts/check_evaluation_thresholds.py
+            displayName: 'Validate evaluation thresholds'
+            # Fail pipeline if thresholds not met
+
+  - stage: SafetyEvaluation
+    displayName: 'Safety & Bias Testing'
+    dependsOn: Evaluation
+    jobs:
+      - job: ContentSafety
+        steps:
+          - script: |
+              python tests/run_content_safety_evaluation.py
+            displayName: 'Content safety evaluation'
+          
+          - script: |
+              python tests/run_red_team_scan.py
+            displayName: 'AI Red Teaming scan'
+
+  - stage: Deploy
+    displayName: 'Deploy to Staging'
+    dependsOn: SafetyEvaluation
+    condition: succeeded()
+    jobs:
+      - deployment: DeployStaging
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: 'Azure-Subscription'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      # Deploy orchestrator to Azure App Service
+                      az webapp deploy --resource-group rg-grant-compliance \
+                        --name app-grant-compliance-staging \
+                        --src-path ./backend
+                      
+                      # Update Azure AI Search index
+                      az search index update --name grant-compliance-index \
+                        --resource-group rg-grant-compliance
+
+  - stage: SmokeTest
+    displayName: 'Staging Smoke Tests'
+    dependsOn: Deploy
+    jobs:
+      - job: SmokeTests
+        steps:
+          - script: |
+              python tests/smoke_tests_staging.py
+            displayName: 'Run staging smoke tests'
+
+  - stage: ProductionDeploy
+    displayName: 'Deploy to Production'
+    dependsOn: SmokeTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployProduction
+        environment: 'production'
+        strategy:
+          canary:
+            increments: [10, 25, 50, 100]
+            preDeploy:
+              steps:
+                - script: |
+                    python tests/pre_production_validation.py
+                  displayName: 'Pre-production validation'
+            deploy:
+              steps:
+                - task: AzureCLI@2
+                  inputs:
+                    azureSubscription: 'Azure-Subscription'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      # Blue-green deployment
+                      az webapp deployment slot create --name app-grant-compliance \
+                        --resource-group rg-grant-compliance \
+                        --slot green
+                      
+                      az webapp deploy --name app-grant-compliance \
+                        --resource-group rg-grant-compliance \
+                        --slot green \
+                        --src-path ./backend
+            postRouteTraffic:
+              steps:
+                - script: |
+                    python tests/post_deployment_validation.py
+                  displayName: 'Post-deployment validation'
+```
+
+#### Quality Gates
+
+```python
+# scripts/check_evaluation_thresholds.py
+import json
+import sys
+
+# Load evaluation results
+with open('evaluation-results.json', 'r') as f:
+    results = json.load(f)
+
+# Define quality thresholds
+THRESHOLDS = {
+    'groundedness': 0.9,
+    'relevance': 0.8,
+    'coherence': 0.8,
+    'f1_score': 0.7,
+    'citation_accuracy': 1.0,
+    'workflow_success_rate': 0.95
+}
+
+# Check thresholds
+failed_checks = []
+for metric, threshold in THRESHOLDS.items():
+    actual = results.get(metric, 0)
+    if actual < threshold:
+        failed_checks.append(f"{metric}: {actual:.2f} < {threshold:.2f}")
+
+if failed_checks:
+    print("❌ Quality gate FAILED:")
+    for check in failed_checks:
+        print(f"  - {check}")
+    sys.exit(1)
+else:
+    print("✅ All quality gates PASSED")
+    sys.exit(0)
+```
+
+#### GitHub Actions Alternative
+
+```yaml
+# .github/workflows/genaiops-pipeline.yml
+name: GenAIOps Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run evaluations
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_SEARCH_API_KEY: ${{ secrets.AZURE_SEARCH_API_KEY }}
+        run: |
+          python tests/evaluate_compliance_agent.py
+          python tests/evaluate_risk_scoring_agent.py
+          python tests/evaluate_end_to_end_workflow.py
+      
+      - name: Check quality gates
+        run: |
+          python scripts/check_evaluation_thresholds.py
+      
+      - name: Upload evaluation results
+        uses: actions/upload-artifact@v3
+        with:
+          name: evaluation-results
+          path: evaluation-results.json
+
+  deploy:
+    needs: evaluate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Azure
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'app-grant-compliance'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+```
+
+### Model Registry and Versioning
+
+```python
+# Store evaluation results with model/prompt versions
+from azure.ai.ml import MLClient
+from azure.identity import DefaultAzureCredential
+
+ml_client = MLClient(
+    credential=DefaultAzureCredential(),
+    subscription_id=os.getenv("AZURE_SUBSCRIPTION_ID"),
+    resource_group_name=os.getenv("AZURE_RESOURCE_GROUP"),
+    workspace_name=os.getenv("AZURE_ML_WORKSPACE")
+)
+
+# Register prompt version with evaluation metrics
+ml_client.models.create_or_update(
+    name="compliance-agent-prompt",
+    version="v1.2.0",
+    type="custom_model",
+    path="agents/config/compliance_prompt.txt",
+    tags={
+        "groundedness_score": "0.92",
+        "relevance_score": "0.85",
+        "f1_score": "0.78",
+        "deployment_date": "2025-12-11",
+        "model": "gpt-4o"
+    }
+)
+```
+
+---
+
 ## Continuous Monitoring
 
 ### Post-Production Observability
@@ -1045,6 +1407,237 @@ Azure AI Foundry Portal → Monitoring → Observability Dashboard
 Filter by: grant-compliance-production
 Time range: Last 7 days
 ```
+
+---
+
+## Model Maintenance and Drift Prevention
+
+### Understanding Model Decay in GenAIOps
+
+Unlike traditional ML models that degrade due to data drift, GenAIOps systems face unique challenges:
+
+#### Types of Drift
+
+| Drift Type | Description | Impact on Grant Compliance System | Mitigation Strategy |
+|------------|-------------|-----------------------------------|---------------------|
+| **Knowledge Base Drift** | Executive orders are updated, new orders issued | Outdated compliance analysis | Automated knowledge base refresh |
+| **Query Drift** | Grant proposal patterns change over time | Reduced retrieval relevance | Periodic RAG optimization |
+| **Regulatory Drift** | Compliance requirements evolve | Incorrect compliance assessments | Quarterly legal review |
+| **Prompt Drift** | Model behavior changes with platform updates | Inconsistent outputs | Prompt versioning and regression testing |
+| **Attorney Expectation Drift** | Legal team's standards evolve | Misalignment with validation criteria | Continuous feedback loop |
+
+### Automated Maintenance Processes
+
+#### 1. Knowledge Base Refresh
+
+```python
+# scripts/automated_knowledge_base_refresh.py
+import schedule
+import time
+from datetime import datetime
+
+def refresh_knowledge_base():
+    """
+    Automated weekly refresh of executive order knowledge base.
+    """
+    print(f"[{datetime.now()}] Starting knowledge base refresh...")
+    
+    # 1. Check for new executive orders from government sources
+    new_eos = fetch_new_executive_orders()
+    
+    # 2. Process and chunk new documents
+    for eo in new_eos:
+        process_and_index_document(eo)
+    
+    # 3. Rebuild search index with new embeddings
+    rebuild_search_index()
+    
+    # 4. Run regression tests to ensure existing compliance checks still work
+    regression_results = run_regression_tests()
+    
+    # 5. Alert if regression detected
+    if regression_results['failed'] > 0:
+        send_alert_to_team(
+            f"Knowledge base refresh caused {regression_results['failed']} regressions"
+        )
+    
+    print(f"[{datetime.now()}] Knowledge base refresh complete.")
+
+# Schedule weekly refresh every Sunday at 2 AM
+schedule.every().sunday.at("02:00").do(refresh_knowledge_base)
+
+while True:
+    schedule.run_pending()
+    time.sleep(3600)  # Check every hour
+```
+
+#### 2. Prompt Regression Testing
+
+```python
+# tests/prompt_regression_tests.py
+import json
+from agents.compliance_agent import ComplianceAgent
+
+def test_prompt_regression():
+    """
+    Ensure prompt changes don't degrade performance on known test cases.
+    """
+    # Load golden dataset (known good responses)
+    with open('tests/data/golden_dataset.json', 'r') as f:
+        golden_dataset = json.load(f)
+    
+    agent = ComplianceAgent(...)
+    
+    regression_detected = False
+    
+    for test_case in golden_dataset:
+        # Run agent with current prompt
+        result = agent.analyze_compliance(
+            document_text=test_case['proposal_text'],
+            metadata={}
+        )
+        
+        # Compare to golden response
+        groundedness = calculate_groundedness(
+            result['analysis'],
+            test_case['expected_analysis']
+        )
+        
+        if groundedness < 0.9:
+            print(f"⚠️ Regression detected on test case {test_case['id']}")
+            print(f"   Groundedness: {groundedness:.2f} (expected >0.9)")
+            regression_detected = True
+    
+    assert not regression_detected, "Prompt regression detected"
+```
+
+#### 3. Attorney Feedback Integration
+
+```python
+# scripts/attorney_feedback_processor.py
+from datetime import datetime, timedelta
+
+def process_attorney_feedback():
+    """
+    Analyze attorney corrections to identify systematic issues.
+    """
+    # Fetch last 30 days of attorney corrections
+    feedback_entries = fetch_attorney_corrections(
+        start_date=datetime.now() - timedelta(days=30)
+    )
+    
+    # Analyze patterns
+    analysis = {
+        'total_corrections': len(feedback_entries),
+        'agreement_rate': 0,
+        'common_disagreements': [],
+        'false_positives': [],
+        'false_negatives': []
+    }
+    
+    # Identify common patterns
+    for entry in feedback_entries:
+        if entry['ai_compliance_status'] != entry['attorney_compliance_status']:
+            # Misalignment detected
+            if entry['ai_compliance_status'] == 'Non-Compliant':
+                analysis['false_positives'].append(entry)
+            else:
+                analysis['false_negatives'].append(entry)
+    
+    # Calculate agreement rate
+    analysis['agreement_rate'] = (
+        len(feedback_entries) - len(analysis['false_positives']) - len(analysis['false_negatives'])
+    ) / len(feedback_entries)
+    
+    # Trigger prompt refinement if agreement rate < 80%
+    if analysis['agreement_rate'] < 0.8:
+        trigger_prompt_optimization(analysis)
+    
+    return analysis
+```
+
+### Continuous Improvement Cycle
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│           CONTINUOUS IMPROVEMENT LIFECYCLE                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. MONITOR PRODUCTION                                      │
+│     ├── Collect attorney feedback                          │
+│     ├── Track groundedness/relevance metrics               │
+│     └── Identify systematic errors                         │
+│                                                             │
+│  2. ANALYZE PATTERNS                                        │
+│     ├── Attorney disagreement analysis                     │
+│     ├── Knowledge base coverage gaps                       │
+│     └── Query pattern evolution                            │
+│                                                             │
+│  3. PLAN IMPROVEMENTS                                       │
+│     ├── Prompt refinement candidates                       │
+│     ├── Knowledge base expansion                           │
+│     └── RAG optimization opportunities                     │
+│                                                             │
+│  4. IMPLEMENT CHANGES                                       │
+│     ├── A/B test prompt variations                         │
+│     ├── Update chunking strategies                         │
+│     └── Refresh search index                               │
+│                                                             │
+│  5. VALIDATE IMPROVEMENTS                                   │
+│     ├── Run evaluation suite                               │
+│     ├── Regression testing                                 │
+│     └── Attorney validation                                │
+│                                                             │
+│  6. DEPLOY TO PRODUCTION                                    │
+│     ├── Canary deployment                                  │
+│     ├── Monitor for regressions                            │
+│     └── Full rollout or rollback                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Model Catalog Maintenance
+
+```python
+# Monitor for new GPT model releases
+def check_for_model_updates():
+    """
+    Periodically check for new Azure OpenAI model versions.
+    """
+    current_model = "gpt-4o-2024-11-20"
+    
+    # Check Azure OpenAI model catalog
+    available_models = azure_openai_client.models.list()
+    
+    newer_models = [
+        m for m in available_models 
+        if m.id.startswith('gpt-4o') and m.created > get_model_date(current_model)
+    ]
+    
+    if newer_models:
+        for model in newer_models:
+            # Create experiment to evaluate new model
+            run_model_comparison_experiment(
+                baseline_model=current_model,
+                candidate_model=model.id,
+                test_dataset='tests/evaluation_datasets/end_to_end_tests.json'
+            )
+```
+
+### Scheduled Maintenance Calendar
+
+| Frequency | Task | Automation Level | Owner |
+|-----------|------|------------------|-------|
+| **Daily** | Continuous evaluation (10% traffic) | Fully automated | Azure Monitor |
+| **Daily** | Scheduled evaluation run | Fully automated | Azure AI Foundry |
+| **Weekly** | Knowledge base refresh | Fully automated | DataOps Pipeline |
+| **Weekly** | Attorney feedback analysis | Semi-automated | Legal Team Lead |
+| **Bi-weekly** | Prompt regression testing | Fully automated | CI/CD Pipeline |
+| **Monthly** | Model performance review | Manual review | Data Science Team |
+| **Quarterly** | Compliance requirements review | Manual review | Legal Compliance Officer |
+| **Quarterly** | GenAIOps maturity assessment | Manual review | Technical Lead |
+| **Semi-annual** | Major knowledge base overhaul | Semi-automated | DataOps + Legal |
+| **Annual** | Model replacement evaluation | Manual review | Architecture Team |
 
 ---
 
