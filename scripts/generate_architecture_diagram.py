@@ -4,6 +4,7 @@ Generate Grant Proposal Compliance Automation Architecture Diagram
 Based on the solution architecture described in README.md
 """
 
+from pathlib import Path
 from diagrams import Diagram, Cluster, Edge
 from diagrams.azure.storage import BlobStorage, StorageAccounts
 from diagrams.azure.ml import CognitiveServices
@@ -11,12 +12,21 @@ from diagrams.azure.aimachinelearning import CognitiveSearch, AIStudio, AzureOpe
 from diagrams.azure.compute import FunctionApps
 from diagrams.onprem.client import Users, User
 
+# Determine output path - always relative to project root
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+OUTPUT_DIR = PROJECT_ROOT / "images"
+OUTPUT_PATH = OUTPUT_DIR / "architecture_diagram"
+
+# Ensure output directory exists
+OUTPUT_DIR.mkdir(exist_ok=True)
+
 # Configure diagram
 graph_attr = {
     "fontsize": "14",
     "bgcolor": "white",
     "pad": "0.5",
-    "splines": "spline",
+    "splines": "polyspline",
 }
 
 node_attr = {
@@ -29,8 +39,8 @@ edge_attr = {
 
 with Diagram(
     "Grant Proposal Compliance Automation Architecture",
-    filename="architecture_diagram",
-    direction="TB",
+    filename=str(OUTPUT_PATH),
+    direction="LR",
     graph_attr=graph_attr,
     node_attr=node_attr,
     edge_attr=edge_attr,
@@ -87,4 +97,11 @@ with Diagram(
     attorney >> Edge(label="Validated\nDecision") >> client # type: ignore
 
 print("✅ Architecture diagram generated successfully!")
-print("📊 Output file: ../images/architecture_diagram.png")
+print(f"📊 Output file: {OUTPUT_PATH}.png")
+
+# Verify file was created
+if (OUTPUT_PATH.parent / f"{OUTPUT_PATH.name}.png").exists():
+    file_size = (OUTPUT_PATH.parent / f"{OUTPUT_PATH.name}.png").stat().st_size
+    print(f"✓ File size: {file_size:,} bytes")
+else:
+    print("⚠️  Warning: Output file not found!")
