@@ -10,6 +10,8 @@ from diagrams.azure.storage import BlobStorage, StorageAccounts
 from diagrams.azure.ml import CognitiveServices
 from diagrams.azure.aimachinelearning import CognitiveSearch, AIStudio, AzureOpenai
 from diagrams.azure.compute import FunctionApps
+from diagrams.azure.security import KeyVaults
+from diagrams.azure.devops import ApplicationInsights
 from diagrams.onprem.client import Users, User
 
 # Determine output path - always relative to project root
@@ -55,6 +57,11 @@ with Diagram(
         sharepoint = StorageAccounts("SharePoint\nStorage")
         blob_storage = BlobStorage("Azure Blob\nStorage")
     
+    # Security & Monitoring
+    with Cluster("Security & Monitoring"):
+        key_vault = KeyVaults("Azure Key Vault\n(Secrets)")
+        app_insights = ApplicationInsights("Application Insights\n(Monitoring)")
+    
     # Azure AI Foundry Processing
     with Cluster("Azure AI Foundry Processing"):
         # Document Processing
@@ -83,6 +90,11 @@ with Diagram(
     # Alternative storage path
     document_submission >> Edge(label="Upload", style="dashed") >> blob_storage # type: ignore
     blob_storage >> Edge(label="Process", style="dashed") >> doc_intelligence # type: ignore
+    
+    # Security connections
+    key_vault >> Edge(label="Secrets", style="dotted") >> ai_foundry # type: ignore
+    ai_foundry >> Edge(label="Telemetry", style="dotted") >> app_insights # type: ignore
+    function_apps >> Edge(label="Telemetry", style="dotted") >> app_insights # type: ignore
     
     # Document processing flow
     doc_intelligence >> Edge(label="Extract &\nIndex") >> ai_search # type: ignore

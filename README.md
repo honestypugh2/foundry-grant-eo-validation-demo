@@ -352,29 +352,6 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 
 ## Getting Started
 
-### Quick Start (One Command)
-
-Start both backend and frontend with a single command:
-
-**Linux/Mac:**
-```bash
-./start.sh
-```
-
-This will:
-- ✅ Check prerequisites (Python, Node.js, npm)
-- ✅ Install all dependencies automatically
-- ✅ Start FastAPI backend on port 8000
-- ✅ Start React frontend on port 3000
-- ✅ Open browser automatically
-
-**To stop services:**
-```bash
-./stop.sh    # Linux/Mac
-```
-
----
-
 ### Manual Setup (Step-by-Step)
 
 #### 1. Clone the Repository
@@ -396,7 +373,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 > **Note**: `uv` automatically creates a virtual environment and installs all dependencies from `pyproject.toml`.
 
-### 3. Configure Environment
+#### 3. Configure Environment
 
 Create a `.env` file from the template:
 
@@ -423,6 +400,33 @@ AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.api.cognitive.microsoft
 # Use Managed Identity (recommended for production)
 USE_MANAGED_IDENTITY=true
 ```
+
+---
+
+### Quick Start (One Command)
+
+> **Note**: Quick Start requires completing steps 1-3 from Manual Setup above (clone repository, install dependencies, configure environment).
+
+Start both backend and frontend with a single command:
+
+**Linux/Mac:**
+```bash
+./start.sh
+```
+
+This will:
+- ✅ Check prerequisites (Python, Node.js, npm)
+- ✅ Install all dependencies automatically
+- ✅ Start FastAPI backend on port 8000
+- ✅ Start React frontend on port 3000
+- ✅ Open browser automatically
+
+**To stop services:**
+```bash
+./stop.sh    # Linux/Mac
+```
+
+---
 
 ### 4. Add Your PDF Documents
 
@@ -577,31 +581,33 @@ Follow the [Getting Started](#getting-started) steps above.
 
 ### Azure Deployment
 
-1. **Provision Azure Resources**
-   ```bash
-   # Use Azure CLI or provided ARM/Bicep templates
-   az deployment group create \
-     --resource-group your-rg \
-     --template-file deployment/main.bicep
-   ```
+Deploy the complete infrastructure and application using Azure Developer CLI (azd):
 
-2. **Deploy Function Apps**
-   ```bash
-   cd functions
-   func azure functionapp publish your-function-app-name
-   ```
+```bash
+# One-command deployment
+azd up
 
-3. **Configure SharePoint Integration**
-   - Set up document library
-   - Configure webhooks for document submission
-   - Grant necessary permissions
+# Or step-by-step
+azd init           # Initialize environment
+azd provision      # Deploy infrastructure
+azd deploy         # Deploy applications
+```
 
-4. **Deploy AI Agents**
-   - Deploy agents to Azure AI Foundry
-   - Configure prompts and workflows
-   - Set up evaluation pipelines
+This deploys:
+- ✅ Azure AI Foundry with GPT-4
+- ✅ Azure Document Intelligence
+- ✅ Azure AI Search
+- ✅ Azure Storage Account
+- ✅ Backend API (FastAPI)
+- ✅ Frontend (React/Vite)
 
-Detailed deployment instructions are available in [Deployment.md](docs/Deployment.md).
+**Alternative deployment methods:**
+- **Bicep**: `az deployment sub create --template-file infra/main.bicep`
+- **Terraform**: `cd infra/terraform && terraform apply`
+
+**Detailed deployment instructions:**
+- 📖 [Infrastructure Deployment Guide](infra/README.md) - Complete azd/Bicep/Terraform guide
+- 📖 [Deployment Documentation](docs/Deployment.md) - Additional deployment scenarios
 
 ## Project Structure
 
@@ -644,6 +650,18 @@ foundry-grant-eo-validation-demo/
 ├── functions/
 │   ├── email_notifier/            # Azure Function for email notifications
 │   └── document_processor/        # Azure Function for document ingestion
+├── infra/                         # Infrastructure as Code (NEW!)
+│   ├── bicep/                     # Bicep templates
+│   │   ├── main.bicep            # Core resource definitions
+│   │   └── abbreviations.json    # Naming conventions
+│   ├── terraform/                 # Terraform templates
+│   │   ├── main.tf               # Main configuration
+│   │   ├── variables.tf          # Input variables
+│   │   ├── outputs.tf            # Output values
+│   │   └── providers.tf          # Provider setup
+│   ├── main.bicep                # Subscription-level entry point
+│   ├── main.parameters.json      # Bicep parameters
+│   └── README.md                 # Deployment guide
 ├── config/
 │   ├── search_index.json          # Azure AI Search index definition
 │   └── document_intelligence.json # Document Intelligence config
@@ -660,7 +678,9 @@ foundry-grant-eo-validation-demo/
 ├── scripts/
 │   ├── index_knowledge_base.py    # Index PDFs to Azure AI Search
 │   ├── process_documents.py       # Batch process PDFs with Document Intelligence
+│   ├── generate_architecture_diagram.py  # Generate architecture diagram
 │   └── sharepoint_integration.py  # Optional: SharePoint document access
+├── azure.yaml                     # Azure Developer CLI configuration
 ├── .env.example                   # Environment variables template
 ├── requirements.txt               # Python dependencies
 ├── pyproject.toml                 # Project configuration
@@ -700,6 +720,7 @@ This project welcomes contributions and suggestions. Please see [CONTRIBUTING.md
 - [Microsoft Agent Framework](https://github.com/microsoft/agent-framework)
 
 ### Project Guides
+- [⚡ Quick Deploy to Azure](docs/QuickDeploy.md) - **Deploy to Azure in under 10 minutes**
 - [⚛️ React App Quick Start](docs/ReactQuickstart.md) - **Get the React frontend running in 60 seconds**
 - [🏗️ System Architecture](docs/Architecture.md) - **Comprehensive architecture documentation**
 - [🚀 Deployment Guide](docs/Deployment.md) - **Azure deployment instructions**
