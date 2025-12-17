@@ -37,6 +37,7 @@ dependencies = [
     "nest-asyncio>=1.6.0",
     "azure-storage-queue>=12.14.1",
     "reportlab>=4.4.5",
+    "diagrams>=0.25.1",
 ]
 
 [dependency-groups]

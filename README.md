@@ -95,6 +95,8 @@ Currently, county departments submit grant proposals and related documents via e
 
 ## Solution Architecture
 
+![Grant Proposal Compliance Automation Architecture](images/architecture_diagram.png)
+
 ```
 ┌─────────────────┐
 │   Document      │
