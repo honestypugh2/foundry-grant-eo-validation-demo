@@ -399,7 +399,6 @@ async def main():
                 search_index_name=config['search_index'] or 'grant-compliance-index',
                 azure_search_document_truncation_size=int(os.getenv('AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE', '2000')),
                 use_managed_identity=False,
-                api_key=os.getenv('AZURE_OPENAI_API_KEY') or os.getenv('AZURE_AI_FOUNDRY_API_KEY'),
                 search_api_key=os.getenv('AZURE_SEARCH_API_KEY')
             )
         print("   ✅ Agent initialized successfully\n")

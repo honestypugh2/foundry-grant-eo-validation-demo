@@ -27,7 +27,6 @@ class ComplianceAgent:
         search_index_name: str,
         azure_search_document_truncation_size: int,
         use_managed_identity: bool = False,
-        api_key: Optional[str] = None,
         search_api_key: Optional[str] = None,
     ):
         """
@@ -38,8 +37,8 @@ class ComplianceAgent:
             model_deployment_name: Name of the deployed model
             search_endpoint: Azure AI Search service endpoint
             search_index_name: Name of the search index for executive orders
+            azure_search_document_truncation_size: Document content truncation size for search results
             use_managed_identity: Whether to use Managed Identity for authentication
-            api_key: API key for Azure OpenAI (if not using managed identity)
             search_api_key: API key for Azure Search (if not using managed identity)
         """
         self.project_endpoint = project_endpoint
@@ -542,10 +541,9 @@ async def main():
         model_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT") or "gpt-4",
         search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT") or "",
         search_index_name=os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX") or "grant-compliance-index",
+        azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
         use_managed_identity=use_managed_identity,
-        api_key=None if use_managed_identity else os.getenv("AZURE_OPENAI_API_KEY"),
         search_api_key=None if use_managed_identity else os.getenv("AZURE_SEARCH_API_KEY"),
-        azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000"))
     )
 
     # Example proposal

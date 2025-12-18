@@ -33,41 +33,75 @@ az cognitiveservices account create \
 
 ### 2. Environment Variables Configured
 
-Update your `.env` file:
+Update your `.env` file with one of the following authentication methods:
+
+**Option A: Managed Identity / Entra ID (Recommended for Production)**
 
 ```env
 # Azure AI Search
 AZURE_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
 AZURE_SEARCH_INDEX_NAME=grant-compliance-index
-AZURE_SEARCH_API_KEY=your_search_key
 
-# Azure Document Intelligence
+# Use Managed Identity (no API key needed)
+USE_MANAGED_IDENTITY=true
+
+# Optional: Specify tenant ID if you have multiple tenants
+# Find your tenant ID: az account show --query tenantId -o tsv
+AZURE_TENANT_ID=your-tenant-id-here
+
+# Azure Document Intelligence (optional)
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.api.cognitive.microsoft.com
+# For Document Intelligence, you can also use managed identity or provide a key
+AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_doc_intel_key
+```
+
+**Option B: API Key Authentication (For Development)**
+
+```env
+# Azure AI Search
+AZURE_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
+AZURE_SEARCH_INDEX_NAME=grant-compliance-index
+AZURE_SEARCH_API_KEY=your_search_admin_key
+
+# Azure Document Intelligence (optional)
 AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.api.cognitive.microsoft.com
 AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_doc_intel_key
 
-# Or use Managed Identity (recommended for production)
-USE_MANAGED_IDENTITY=true
+# Not using managed identity
+USE_MANAGED_IDENTITY=false
 ```
+
+**Note**: If your Azure Search service has key-based authentication disabled (common in production), you must use Option A.
 
 ### 3. Get Azure Credentials
 
 ```bash
-# Get Search Service Key
+# Get Search Service Admin Key (required for creating indexes)
 az search admin-key show \
   --service-name your-search-service \
-  --resource-group your-rg
+  --resource-group your-rg \
+  --query "primaryKey" -o tsv
 
 # Get Document Intelligence Key
 az cognitiveservices account keys list \
   --name your-doc-intelligence \
-  --resource-group your-rg
+  --resource-group your-rg \
+  --query "key1" -o tsv
 ```
+
+**Important**: Use the **Admin key** (not Query key) for index creation and document upload. Query keys only allow read operations.
 
 ### 4. Install Required Packages
 
 ```bash
-uv pip install azure-search-documents azure-ai-documentintelligence PyPDF2 python-dotenv
+# If using pip
+uv add azure-search-documents azure-ai-documentintelligence azure-identity PyPDF2 python-dotenv
+
+# If using uv (recommended for this project)
+uv add azure-search-documents azure-ai-documentintelligence azure-identity PyPDF2 python-dotenv
 ```
+
+**Note**: `azure-ai-documentintelligence` is optional. If not installed, the script will fall back to PyPDF2 for text extraction (no OCR support).
 
 ---
 
@@ -124,22 +158,56 @@ print('✅ Successfully connected to Azure AI Search')
 
 ### Step 3: Create Search Index (First Time Only)
 
-The search index must be created before uploading documents:
+The search index will be automatically created when you run the indexing script for the first time. The script includes index creation logic.
+
+**Alternative Option 1: Create Index via REST API**
 
 ```bash
-# The index configuration is in config/search_index.json
-# Create index using Azure CLI or Portal
+# Set your variables
+SEARCH_SERVICE_NAME="your-search-service"
+SEARCH_ADMIN_KEY="your-admin-key"
+INDEX_NAME="grant-compliance-index"
 
-az search index create \
-  --service-name your-search-service \
-  --name grant-compliance-index \
-  --fields @config/search_index.json
+# Create the index using REST API
+curl -X PUT \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}?api-version=2023-11-01" \
+  -H "Content-Type: application/json" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -d '{
+  "name": "grant-compliance-index",
+  "fields": [
+    {"name": "id", "type": "Edm.String", "key": true, "filterable": true, "sortable": true},
+    {"name": "title", "type": "Edm.String", "searchable": true, "sortable": true, "analyzer": "en.microsoft"},
+    {"name": "content", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"},
+    {"name": "document_type", "type": "Edm.String", "filterable": true, "sortable": true, "facetable": true},
+    {"name": "executive_order_number", "type": "Edm.String", "searchable": true, "filterable": true, "sortable": true, "facetable": true},
+    {"name": "effective_date", "type": "Edm.String", "filterable": true, "sortable": true},
+    {"name": "category", "type": "Edm.String", "searchable": true, "filterable": true},
+    {"name": "keywords", "type": "Edm.String", "searchable": true},
+    {"name": "compliance_areas", "type": "Edm.String", "searchable": true, "filterable": true},
+    {"name": "agency", "type": "Edm.String", "filterable": true},
+    {"name": "status", "type": "Edm.String", "filterable": true},
+    {"name": "summary", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"}
+  ]
+}'
 ```
 
-Or use the Azure Portal:
-1. Navigate to your Search Service
+**Verify index creation:**
+```bash
+curl -X GET \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}?api-version=2023-11-01" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}"
+```
+
+**Alternative Option 2: Create Index via Azure Portal**
+
+1. Navigate to your Search Service in Azure Portal
 2. Click "Indexes" → "+ Add index"
-3. Import schema from `config/search_index.json`
+3. Manually configure fields based on `config/search_index.json` schema
+
+**Note**: 
+- The REST API schema above matches what the Python script creates (simple strings, not collections)
+- The `config/search_index.json` file contains a more advanced schema with vector search and semantic configurations that can be used if you manually create the index through the portal
 
 ### Step 4: Run the Indexing Script
 
@@ -149,6 +217,13 @@ Or use the Azure Portal:
 python scripts/index_knowledge_base.py \
   --input knowledge_base/executive_orders \
   --type executive_order
+```
+
+#### Index Sample Executive Orders (Default)
+
+```bash
+# Uses default directory: knowledge_base/sample_executive_orders
+python scripts/index_knowledge_base.py
 ```
 
 #### Index Grant Guidelines
@@ -162,20 +237,25 @@ python scripts/index_knowledge_base.py \
 #### Index Multiple Directories
 
 ```bash
+# Index sample executive orders
+python scripts/index_knowledge_base.py --input knowledge_base/sample_executive_orders --type executive_order
+
 # Index executive orders
-python scripts/index_knowledge_base.py --input knowledge_base/executive_orders
+python scripts/index_knowledge_base.py --input knowledge_base/executive_orders --type executive_order
 
 # Index guidelines
-python scripts/index_knowledge_base.py --input knowledge_base/grant_guidelines
+python scripts/index_knowledge_base.py --input knowledge_base/grant_guidelines --type grant_guideline
 ```
 
-#### Dry Run (Test Without Uploading)
+#### Skip Index Check (if index already exists)
 
 ```bash
 python scripts/index_knowledge_base.py \
   --input knowledge_base/executive_orders \
-  --dry-run
+  --skip-index-check
 ```
+
+**Note**: The `--dry-run` flag mentioned in earlier versions is not implemented in the current script.
 
 ### Step 5: Verify Upload Success
 
@@ -186,24 +266,26 @@ python scripts/index_knowledge_base.py \
 📚 Knowledge Base PDF Indexer
 ======================================================================
 
+✅ Search index 'grant-compliance-index' already exists
+
 📄 Found 3 PDF files to index
 📁 Directory: knowledge_base/executive_orders
 🏷️  Document type: executive_order
 
 [1/3] Processing: EO_14008_Climate_Crisis.pdf
-  └─ Extracting text with Azure Document Intelligence...
+  └─ Extracting text...
   └─ Creating search document...
-  └─ ✅ Successfully processed (25,847 characters)
+  └─ ✅ Successfully processed (25847 characters)
 
 [2/3] Processing: EO_14028_Cybersecurity.pdf
-  └─ Extracting text with Azure Document Intelligence...
+  └─ Extracting text...
   └─ Creating search document...
-  └─ ✅ Successfully processed (18,234 characters)
+  └─ ✅ Successfully processed (18234 characters)
 
 [3/3] Processing: EO_13985_Racial_Equity.pdf
-  └─ Extracting text with Azure Document Intelligence...
+  └─ Extracting text...
   └─ Creating search document...
-  └─ ✅ Successfully processed (22,156 characters)
+  └─ ✅ Successfully processed (22156 characters)
 
 ⬆️  Uploading 3 documents to Azure AI Search...
 ✅ Successfully indexed 3/3 documents
@@ -211,6 +293,13 @@ python scripts/index_knowledge_base.py \
 ======================================================================
 ✅ Indexing complete: 3 documents indexed
 ======================================================================
+```
+
+If the index doesn't exist, you'll see:
+```
+⚠️  Index check via search failed, attempting to create...
+📝 Creating search index 'grant-compliance-index'...
+✅ Index created successfully
 ```
 
 ### Step 6: Verify Documents in Azure Search
@@ -242,6 +331,19 @@ Or use Azure Portal:
 1. Navigate to your Search Service
 2. Click "Search explorer"
 3. Run a test search query
+
+---
+
+## Important Schema Notes
+
+**Schema Mismatch**: The `config/search_index.json` file defines some fields as `Collection(Edm.String)` (arrays), but the Python script creates the index with simple `String` fields and converts arrays to comma-separated strings. This is intentional for compatibility with the current implementation.
+
+Fields affected:
+- `category`: Stored as comma-separated string (e.g., "climate, policy")
+- `keywords`: Stored as comma-separated string (e.g., "renewable, energy, sustainability")
+- `compliance_areas`: Stored as comma-separated string (e.g., "climate, cybersecurity")
+
+If you manually create the index using the JSON schema, the script will still work, but it will send comma-separated strings instead of arrays.
 
 ---
 
@@ -315,6 +417,92 @@ The compliance agent will:
 
 ## Troubleshooting
 
+### Error: "Invalid tenant ID" or "You can locate your tenant ID..."
+
+**Problem**: The script is trying to use Managed Identity but doesn't have a valid tenant ID configured.
+
+**Solution**:
+
+1. Find your Azure tenant ID:
+```bash
+az account show --query tenantId -o tsv
+```
+
+2. Add it to your `.env` file:
+```env
+AZURE_TENANT_ID=00000000-0000-0000-0000-000000000000
+USE_MANAGED_IDENTITY=true
+```
+
+3. Login with the correct tenant:
+```bash
+az login --tenant your-tenant-id
+```
+
+4. Run the script again:
+```bash
+python scripts/index_knowledge_base.py --input knowledge_base/executive_orders
+```
+
+### Error: "AuthenticationTypeDisabled" or "Key based authentication is disabled"
+
+**Problem**: Your Azure Search service has key-based authentication disabled and requires Managed Identity or Entra ID authentication.
+
+**Solution 1: Use Managed Identity** (Recommended for production)
+
+1. Update your `.env` file:
+```env
+USE_MANAGED_IDENTITY=true
+# Remove or comment out AZURE_SEARCH_API_KEY
+```
+
+2. Authenticate with Azure:
+```bash
+# If running locally
+az login
+
+# If running in Azure (VM, App Service, Container Instance, etc.)
+# Managed Identity will be automatically detected
+```
+
+3. Assign the required role to your identity:
+```bash
+# Get your user principal ID (for local development)
+USER_ID=$(az ad signed-in-user show --query id -o tsv)
+
+# Or get your managed identity principal ID (for Azure resources)
+# MANAGED_IDENTITY_ID=$(az identity show --name your-identity --resource-group your-rg --query principalId -o tsv)
+
+# Assign Search Index Data Contributor role
+az role assignment create \
+  --assignee $USER_ID \
+  --role "Search Index Data Contributor" \
+  --scope /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RG/providers/Microsoft.Search/searchServices/YOUR_SEARCH_SERVICE
+
+# Assign Search Service Contributor role (for index creation)
+az role assignment create \
+  --assignee $USER_ID \
+  --role "Search Service Contributor" \
+  --scope /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RG/providers/Microsoft.Search/searchServices/YOUR_SEARCH_SERVICE
+```
+
+4. Run the script:
+```bash
+python scripts/index_knowledge_base.py --input knowledge_base/executive_orders
+```
+
+**Solution 2: Enable Key-Based Authentication** (For development/testing)
+
+1. Go to Azure Portal → Your Search Service
+2. Navigate to Settings → Keys
+3. Under "API Access Control", enable "Both" or "API Keys"
+4. Copy the Admin Key
+5. Update your `.env` file:
+```env
+AZURE_SEARCH_API_KEY=your_admin_key_here
+USE_MANAGED_IDENTITY=false
+```
+
 ### Error: "Azure AI Search not configured"
 
 **Solution**: Check your `.env` file has required variables:
@@ -326,12 +514,28 @@ AZURE_SEARCH_API_KEY=your_key
 
 ### Error: "Index does not exist"
 
-**Solution**: Create the search index first:
+**Solution 1**: Let the script create the index automatically (recommended):
 ```bash
-az search index create \
-  --service-name your-search-service \
-  --name grant-compliance-index
+python scripts/index_knowledge_base.py --input knowledge_base/executive_orders
 ```
+
+**Solution 2**: Create the index manually via REST API (see Step 3 above)
+
+**Solution 3**: Create via Azure Portal:
+- Navigate to your Search Service → Indexes → Add index
+
+### Error: "403 Forbidden" when creating index via REST
+
+**Solution**: Ensure you're using an **Admin key**, not a Query key:
+```bash
+# Get the correct admin key
+az search admin-key show \
+  --service-name your-search-service \
+  --resource-group your-rg \
+  --query "primaryKey" -o tsv
+```
+
+Query keys only allow search operations, not index creation or document upload.
 
 ### Error: "Document Intelligence authentication failed"
 
@@ -367,6 +571,17 @@ If Document Intelligence is not configured, the script automatically falls back 
 
 ## Advanced Options
 
+### View All Command-Line Arguments
+
+```bash
+python scripts/index_knowledge_base.py --help
+```
+
+Available arguments:
+- `--input`: Directory containing PDF files (default: `knowledge_base/sample_executive_orders`)
+- `--type`: Document type - choices: `executive_order`, `grant_guideline`, `policy`, `regulation` (default: `executive_order`)
+- `--skip-index-check`: Skip index existence check (use if index already verified to exist)
+
 ### Custom Document Types
 
 ```bash
@@ -381,9 +596,12 @@ python scripts/index_knowledge_base.py \
 #!/bin/bash
 # Index all knowledge base directories
 
+python scripts/index_knowledge_base.py --input knowledge_base/sample_executive_orders --type executive_order
 python scripts/index_knowledge_base.py --input knowledge_base/executive_orders --type executive_order
 python scripts/index_knowledge_base.py --input knowledge_base/grant_guidelines --type grant_guideline
-python scripts/index_knowledge_base.py --input knowledge_base/policies --type policy
+
+# If you have additional directories:
+# python scripts/index_knowledge_base.py --input knowledge_base/sample_proposals --type grant_guideline
 ```
 
 ### Update Existing Documents
@@ -405,12 +623,55 @@ client = SearchClient(
     AzureKeyCredential(os.getenv('AZURE_SEARCH_API_KEY'))
 )
 
-# Delete document by ID
-client.delete_documents(documents=[{'id': 'EO_14008_Climate_Crisis'}])
+# Delete document by ID (ID must match the one created by script)
+result = client.delete_documents(documents=[{'id': 'EO_14008_Climate_Crisis'}])
+print(f'Deleted: {list(result)}')
 "
 ```
 
 2. Re-run indexing script with updated PDF
+
+**Note**: Document IDs are generated from filenames with special characters removed. For `EO_14008_Climate_Crisis.pdf`, the ID would be `EO_14008_Climate_Crisis`.
+
+### REST API Operations
+
+You can also manage the search index using the Azure Search REST API:
+
+**List all indexes:**
+```bash
+curl -X GET \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes?api-version=2023-11-01" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}"
+```
+
+**Get index statistics:**
+```bash
+curl -X GET \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}/stats?api-version=2023-11-01" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}"
+```
+
+**Delete the index:**
+```bash
+curl -X DELETE \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}?api-version=2023-11-01" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}"
+```
+
+**Search documents via REST:**
+```bash
+curl -X POST \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}/docs/search?api-version=2023-11-01" \
+  -H "Content-Type: application/json" \
+  -H "api-key: ${SEARCH_ADMIN_KEY}" \
+  -d '{
+    "search": "executive order climate",
+    "top": 5,
+    "select": "id,title,executive_order_number"
+  }'
+```
+
+For more REST API operations, see the [Azure Search REST API documentation](https://learn.microsoft.com/rest/api/searchservice/).
 
 ### Monitor Indexing Progress
 
@@ -489,4 +750,5 @@ For issues or questions:
 
 ---
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
+**Verified**: CLI commands and script arguments verified against actual implementation

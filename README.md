@@ -180,9 +180,9 @@ The system uses three complementary scores to evaluate grant proposals and guide
 | **Azure Document Intelligence** | Document processing and extraction | OCR, form recognition, layout analysis, content extraction |
 | **Azure AI Search** | Semantic search and retrieval | Vector search, semantic ranking, knowledge base indexing |
 | **Azure Blob Storage** | Document storage and management | Scalable storage, file organization, integration with processing services |
-| **Azure Function Apps** | Serverless notifications and workflows | Email triggers, event-driven processing, scalable execution |
-| **SharePoint** | Document storage and management | Centralized document repository, access control |
-| **Azure Key Vault** | Secrets management | Secure credential storage, managed identity integration |
+| **Azure Function Apps (not deployed in this demo)** | Serverless notifications and workflows | Email triggers, event-driven processing, scalable execution |
+| **SharePoint (not used in this demo)** | Document storage and management | Centralized document repository, access control |
+| **Azure Key Vault (not deployed in this demo)** | Secrets management | Secure credential storage, managed identity integration |
 | **Azure Monitor** | Logging and monitoring | Application insights, performance tracking |
 
 ### Optional Azure Services
@@ -325,14 +325,15 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 
 #### Required Resources
 - Azure subscription with appropriate permissions
-- Azure AI Foundry project and workspace
+- **Azure AI Foundry resource** (AIServices account with project management enabled)
+- **Azure AI Foundry project** (child project under the Foundry resource)
 - Azure AI Search service
 - Azure Document Intelligence resource
 - Azure Blob Storage (for document storage and processing)
-- Azure Function App (for production deployment)
-- SharePoint Online (optional - for enterprise document management)
 
 #### Optional Resources
+- Azure Function App (for production deployment - optional)
+- SharePoint Online (optional - for enterprise document management)
 - Azure Container Registry (for containerized deployments)
 - Azure App Service (for hosting web applications)
 - Azure Queue Storage (for asynchronous processing workflows)
@@ -344,6 +345,8 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 - Visual Studio Code (recommended)
 - Git
 
+> **💻 Development Note**: This project was developed and tested in a **WSL2 Ubuntu environment**. While it should work on native Linux, macOS, and Windows (with appropriate shell adjustments), WSL2 Ubuntu is the validated development environment.
+
 ### Knowledge & Skills
 - Basic understanding of Azure services
 - Python programming
@@ -352,7 +355,75 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 
 ## Getting Started
 
-### Manual Setup (Step-by-Step)
+### Quick Start (Recommended)
+
+Get the application running in 3 steps:
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/foundry-grant-eo-validation-demo.git
+cd foundry-grant-eo-validation-demo
+```
+
+#### 2. Configure Environment
+
+Create a `.env` file from the template:
+
+```bash
+cp .env.example .env
+```
+
+Update `.env` with your Azure credentials:
+
+```env
+# Azure AI Foundry
+AZURE_AI_FOUNDRY_PROJECT_ENDPOINT=your_foundry_project_endpoint_here
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_KEY=your_api_key_here
+
+# Azure AI Search
+AZURE_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
+AZURE_SEARCH_INDEX_NAME=grant-compliance-index
+AZURE_SEARCH_API_KEY=your_search_api_key_here
+
+# Azure Document Intelligence
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.cognitiveservices.azure.com/
+AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_doc_intel_key_here
+
+# Authentication Method
+# Set to "false" for local development with API keys
+# Set to "true" for production with Managed Identity
+USE_MANAGED_IDENTITY=false
+```
+
+#### 3. Start the Application
+
+**Linux/Mac:**
+```bash
+# One command starts everything
+./start.sh
+```
+
+This will:
+- ✅ Check prerequisites (Python, Node.js, npm)
+- ✅ Install all dependencies automatically (uv sync, npm install)
+- ✅ Start FastAPI backend on port 8000
+- ✅ Start React frontend on port 3000
+- ✅ Open browser automatically at http://localhost:3000
+
+**To stop services:**
+```bash
+./stop.sh    # Linux/Mac
+```
+
+---
+
+### Manual Setup (Alternative)
+
+If you prefer manual control over each step:
 
 #### 1. Clone the Repository
 
@@ -364,11 +435,16 @@ cd foundry-grant-eo-validation-demo
 #### 2. Install Dependencies
 
 ```bash
-# Install dependencies using uv
+# Install dependencies using uv (recommended)
 uv sync
 
 # Activate the virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Alternative: Use pip
+# python -m venv .venv
+# source .venv/bin/activate
+# pip install -r requirements.txt
 ```
 
 > **Note**: `uv` automatically creates a virtual environment and installs all dependencies from `pyproject.toml`.
@@ -381,49 +457,29 @@ Create a `.env` file from the template:
 cp .env.example .env
 ```
 
-Update `.env` with your Azure credentials:
+Then edit `.env` with your Azure credentials (see Quick Start section above for required variables).
 
-```env
-# Azure AI Foundry
-AZURE_AI_PROJECT_CONNECTION_STRING=your_connection_string
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_VERSION=2024-10-01-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+#### 4. Start Backend and Frontend Manually
 
-# Azure AI Search
-AZURE_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
-AZURE_SEARCH_INDEX_NAME=grant-compliance-index
+```bash
+# Terminal 1 - Start Backend
+cd backend
+python main.py
+# Backend runs at http://localhost:8000
 
-# Azure Document Intelligence
-AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.api.cognitive.microsoft.com
-
-# Use Managed Identity (recommended for production)
-USE_MANAGED_IDENTITY=true
+# Terminal 2 - Start Frontend
+cd frontend
+npm install
+npm run dev
+# Frontend runs at http://localhost:3000
 ```
 
----
-
-### Quick Start (One Command)
-
-> **Note**: Quick Start requires completing steps 1-3 from Manual Setup above (clone repository, install dependencies, configure environment).
-
-Start both backend and frontend with a single command:
-
-**Linux/Mac:**
+**Alternative: Run Streamlit Demo (Legacy)**
 ```bash
-./start.sh
-```
-
-This will:
-- ✅ Check prerequisites (Python, Node.js, npm)
-- ✅ Install all dependencies automatically
-- ✅ Start FastAPI backend on port 8000
-- ✅ Start React frontend on port 3000
-- ✅ Open browser automatically
-
-**To stop services:**
-```bash
-./stop.sh    # Linux/Mac
+# Activate virtual environment first
+source .venv/bin/activate
+streamlit run app/streamlit_app_new.py
+# Opens at http://localhost:8501
 ```
 
 ---
@@ -485,14 +541,17 @@ For production use with Azure services:
 
 1. **Index Knowledge Base PDFs** (Executive Orders)
    ```bash
+   # Activate virtual environment
+   source .venv/bin/activate
+   
    # Run indexing script to process PDFs and upload to Azure AI Search
-   python scripts/index_knowledge_base.py --input knowledge_base/executive_orders/
+   python scripts/index_knowledge_base.py --input knowledge_base/sample_executive_orders/
    ```
 
 2. **Process Grant Proposal PDFs** (Documents for Review)
-   - Upload through Streamlit interface, OR
-   - Place in SharePoint document library (production setup), OR
-   - Submit via email (triggers Azure Function App)
+   - Upload through the web interface (React or Streamlit)
+   - Place in SharePoint document library (production setup)
+   - Submit via email (triggers Azure Function App in production)
 
 The Azure Document Intelligence service will automatically:
 - Perform OCR on scanned documents
@@ -500,33 +559,14 @@ The Azure Document Intelligence service will automatically:
 - Identify form fields and tables
 - Extract metadata (dates, document types, etc.)
 
-### 5. Run the Application
+### 5. Using the Application
 
-**React Frontend + FastAPI Backend (Recommended):**
-```bash
-# Start both frontend and backend with one command
-./start.sh
+The application is now running! Access it at:
+- **React Frontend**: http://localhost:3000 (recommended)
+- **FastAPI Backend**: http://localhost:8000/docs (API documentation)
+- **Streamlit Demo**: http://localhost:8501 (if running legacy demo)
 
-# Or manually:
-# Terminal 1 - Backend
-cd backend
-python main.py
-
-# Terminal 2 - Frontend
-cd frontend
-npm install
-npm run dev
-```
-
-The React app will open at `http://localhost:3000` with backend API at `http://localhost:8000`.
-
-**Alternative: Streamlit Demo (Legacy):**
-```bash
-# Run standalone Streamlit demo
-streamlit run app/streamlit_app_new.py
-```
-
-The Streamlit app will open at `http://localhost:8501`.
+**Note**: If you used `./start.sh`, the React app should have opened automatically in your browser.
 
 ## Demo Application
 
@@ -541,7 +581,16 @@ Modern, production-ready interface with:
 - **Risk Analysis**: Comprehensive risk scoring with recommendations
 
 ### Streamlit Demo (Legacy)
-Original demo interface available at `app/streamlit_app_new.py` for reference.
+Original demo interface available for reference:
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Run Streamlit demo
+streamlit run app/streamlit_app_new.py
+```
+
+The Streamlit app will open at `http://localhost:8501`.
 
 ### Working with PDF Documents
 
@@ -620,70 +669,95 @@ foundry-grant-eo-validation-demo/
 │   └── package.json               # Frontend dependencies
 ├── backend/
 │   ├── main.py                    # FastAPI REST API
-│   └── requirements.txt           # Backend dependencies
+│   ├── requirements.txt           # Backend dependencies
+│   └── test_server.py             # Backend test utilities
 ├── app/
-│   ├── streamlit_app_new.py       # Streamlit demo (Legacy)
+│   ├── streamlit_app_new.py       # Streamlit demo (Primary)
+│   ├── streamlit_app.py           # Streamlit demo (Legacy)
 │   ├── components/                # Streamlit UI components
+│   ├── pages/                     # Streamlit multi-page sections
+│   ├── assets/                    # Static assets (images, CSS)
 │   └── utils/                     # Helper functions
-├── agents/
-│   ├── orchestrator.py            # Main orchestration agent
-│   ├── compliance_agent.py        # Compliance checking agent
-│   ├── document_ingestion_agent.py # Document processing agent
-│   ├── summarization_agent.py     # Summary generation agent
-│   ├── risk_scoring_agent.py      # Risk assessment agent
-│   ├── email_trigger_agent.py     # Email notification agent
+├── agents/                        # ⚠️ Note: Only compliance_agent.py and summarization_agent.py
+│   ├── __init__.py                #    use Azure AI Agent Framework. Others follow "agent" naming
+│   ├── orchestrator.py            #    convention but are traditional Python classes.
+│   ├── compliance_agent.py        # ✅ Azure AI Agent Framework - Compliance checking
+│   ├── document_ingestion_agent.py # Traditional class - Document processing
+│   ├── summarization_agent.py     # ✅ Azure AI Agent Framework - Summary generation
+│   ├── risk_scoring_agent.py      # Traditional class - Risk assessment
+│   ├── email_trigger_agent.py     # Traditional class - Email notification
 │   └── config/                    # Agent configurations
 ├── knowledge_base/
-│   ├── executive_orders/          # 📄 Place executive order PDFs here
+│   ├── executive_orders/          # 📄 Executive order text files
 │   │   ├── EO_14008_Climate_Crisis.txt
 │   │   ├── EO_14028_Cybersecurity.txt
-│   │   ├── EO_13985_Racial_Equity.txt
-    ├── sample_executive_orders/          # 📄 Place executive order PDFs here
-│   │   ├── EO_14008_Climate_Crisis.txt
-│   │   ├── EO_14028_Cybersecurity.txt
-│   │   ├── EO_13985_Racial_Equity.txt
+│   │   └── EO_13985_Racial_Equity.txt
+│   ├── sample_executive_orders/   # 📄 Sample executive order PDFs
 │   │   └── *.pdf                  # Your PDF executive orders
 │   ├── grant_guidelines/          # Grant compliance rules
 │   │   └── *.txt, *.pdf           # Policy documents
-│   └── sample_proposals/          # 📄 Place grant proposal PDFs here
+│   └── sample_proposals/          # 📄 Grant proposal PDFs for review
 │       └── *.pdf                  # Your grant proposals to review
 ├── functions/
+│   ├── document_processor/        # Azure Function for document ingestion
 │   ├── email_notifier/            # Azure Function for email notifications
-│   └── document_processor/        # Azure Function for document ingestion
-├── infra/                         # Infrastructure as Code (NEW!)
-│   ├── bicep/                     # Bicep templates
-│   │   ├── main.bicep            # Core resource definitions
-│   │   └── abbreviations.json    # Naming conventions
-│   ├── terraform/                 # Terraform templates
-│   │   ├── main.tf               # Main configuration
-│   │   ├── variables.tf          # Input variables
-│   │   ├── outputs.tf            # Output values
-│   │   └── providers.tf          # Provider setup
-│   ├── main.bicep                # Subscription-level entry point
-│   ├── main.parameters.json      # Bicep parameters
-│   └── README.md                 # Deployment guide
+│   └── sharepoint_webhook_handler/ # Azure Function for SharePoint webhooks
 ├── config/
-│   ├── search_index.json          # Azure AI Search index definition
-│   └── document_intelligence.json # Document Intelligence config
-├── deployment/
-│   ├── main.bicep                 # Infrastructure as Code
-│   └── parameters.json            # Deployment parameters
+│   └── search_index.json          # Azure AI Search index definition
+├── deployment/                    # Legacy deployment (deprecated)
+│   ├── main.bicep                 # Legacy infrastructure template
+│   └── parameters.json            # Legacy deployment parameters
 ├── docs/
 │   ├── Architecture.md            # Detailed architecture documentation
+│   ├── ComplianceWorkflowDiagram.md # Visual workflow diagram
+│   ├── CostEstimation.md          # Azure cost analysis
 │   ├── Deployment.md              # Deployment guide
+│   ├── DeploymentChecklist.md     # Pre-deployment checklist
+│   ├── EvaluationMethodology.md   # AI evaluation approach
+│   ├── pdfGuide.md                # Working with PDF documents
+│   ├── pdfQuickReference.md       # PDF command reference
+│   ├── QuickDeploy.md             # Quick deployment guide
+│   ├── ReactQuickstart.md         # React app setup guide
+│   ├── ScoringSystem.md           # Confidence/compliance/risk scores
+│   ├── sharepointIntegration.md   # SharePoint integration guide
+│   ├── sharepointQuickstart.md    # SharePoint quick start
+│   ├── uploadPdfsToAzureSearch.md # PDF indexing guide
 │   └── UserGuide.md               # End-user documentation
 ├── tests/
-│   ├── test_agents.py             # Agent unit tests
-│   └── test_integration.py        # Integration tests
+│   ├── run_all_agent_tests.py     # Test runner for all agents
+│   ├── test_azure_search.py       # Azure AI Search tests
+│   ├── test_compliance_agent.py   # Compliance agent tests
+│   ├── test_compliance_agent_citations.py # Citation tests
+│   ├── test_document_ingestion_agent.py # Document processing tests
+│   ├── test_email_notification.py # Email notification tests
+│   ├── test_graph_api_email.py    # Microsoft Graph email tests
+│   ├── test_orchestrator.py       # Orchestrator tests
+│   ├── test_orchestrator_quick.py # Quick orchestrator tests
+│   ├── test_risk_scoring_agent.py # Risk scoring tests
+│   ├── test_smtp_email.py         # SMTP email tests
+│   ├── test_summarization_agent.py # Summarization tests
+│   ├── test_upload.py             # Upload functionality tests
+│   └── test_workflow_dataflow.py  # End-to-end workflow tests
 ├── scripts/
 │   ├── index_knowledge_base.py    # Index PDFs to Azure AI Search
-│   ├── process_documents.py       # Batch process PDFs with Document Intelligence
-│   ├── generate_architecture_diagram.py  # Generate architecture diagram
-│   └── sharepoint_integration.py  # Optional: SharePoint document access
-├── azure.yaml                     # Azure Developer CLI configuration
+│   ├── verify_azure_search.py     # Verify search index health
+│   ├── generate_architecture_diagram.py # Generate architecture diagram
+│   ├── sharepoint_integration.py  # SharePoint document access
+│   ├── setup_sharepoint_webhooks.py # Configure SharePoint webhooks
+│   └── deploy_webhook_function.sh # Deploy Azure Function webhooks
+├── data/
+│   ├── uploads/                   # Uploaded grant proposals
+│   └── docs_need_review/          # Documents queued for review
+├── logs/                          # Application logs
+├── images/                        # Screenshots and diagrams
 ├── .env.example                   # Environment variables template
 ├── requirements.txt               # Python dependencies
-├── pyproject.toml                 # Project configuration
+├── pyproject.toml                 # Project configuration (uv/pip)
+├── uv.lock                        # uv dependency lock file
+├── start.sh                       # Start frontend & backend (Linux/Mac)
+├── stop.sh                        # Stop services (Linux/Mac)
+├── contributing.md                # Contribution guidelines
+├── LICENSE                        # MIT License
 └── README.md                      # This file
 ```
 

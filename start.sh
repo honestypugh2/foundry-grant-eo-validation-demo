@@ -14,6 +14,25 @@ NC='\033[0m' # No Color
 # Get the project root directory
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Function to open browser (cross-platform)
+open_browser() {
+    local url="$1"
+    echo -e "${GREEN}Opening browser at ${url}...${NC}"
+    
+    if command -v xdg-open &> /dev/null; then
+        # Linux
+        xdg-open "$url" &> /dev/null &
+    elif command -v open &> /dev/null; then
+        # macOS
+        open "$url" &> /dev/null &
+    elif command -v start &> /dev/null; then
+        # Windows (Git Bash/WSL)
+        start "$url" &> /dev/null &
+    else
+        echo -e "${YELLOW}Could not detect browser command. Please open ${url} manually.${NC}"
+    fi
+}
+
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Grant Compliance Application Launcher${NC}"
 echo -e "${BLUE}========================================${NC}"
@@ -101,6 +120,10 @@ if command -v tmux &> /dev/null; then
     echo ""
     echo -e "${GREEN}Attaching to tmux session...${NC}"
     sleep 2
+    
+    # Open browser after a delay to allow services to start
+    (sleep 5 && open_browser "http://localhost:3000") &
+    
     tmux attach -t $SESSION_NAME
     
 elif command -v gnome-terminal &> /dev/null; then
@@ -125,6 +148,10 @@ elif command -v gnome-terminal &> /dev/null; then
     echo ""
     echo -e "${BLUE}Close the terminal windows to stop the services${NC}"
     
+    # Open browser after a delay to allow services to start
+    sleep 5
+    open_browser "http://localhost:3000"
+    
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo -e "${GREEN}Using macOS Terminal for process management${NC}"
     echo ""
@@ -146,6 +173,10 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo -e "${YELLOW}Frontend:${NC} http://localhost:3000"
     echo ""
     echo -e "${BLUE}Close the terminal windows to stop the services${NC}"
+    
+    # Open browser after a delay to allow services to start
+    sleep 5
+    open_browser "http://localhost:3000"
     
 else
     # Fallback: Run in background with trap to cleanup
@@ -184,6 +215,10 @@ else
     echo -e "${YELLOW}Frontend:${NC} http://localhost:3000 (PID: $FRONTEND_PID)"
     echo ""
     echo -e "${BLUE}Press Ctrl+C to stop all services${NC}"
+    
+    # Open browser after a delay to allow services to start
+    sleep 5
+    open_browser "http://localhost:3000"
     
     # Wait for processes
     wait

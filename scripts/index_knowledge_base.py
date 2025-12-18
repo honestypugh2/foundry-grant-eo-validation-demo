@@ -82,14 +82,49 @@ class KnowledgeBaseIndexer:
             credential=self.search_credential
         )
         
-        if self.doc_intel_endpoint and self.credential and DOCINT_AVAILABLE and DocumentIntelligenceClient is not None:
-            self.doc_intel_client = DocumentIntelligenceClient(
-                endpoint=self.doc_intel_endpoint,
-                credential=self.credential
-            )
-        else:
-            self.doc_intel_client = None
-            print("⚠️  Azure Document Intelligence not configured. Will extract text using PyPDF2.")
+        # Initialize Document Intelligence client with managed identity and API key fallback
+        self.doc_intel_client = None
+        self._doc_intel_available = False
+        
+        if self.doc_intel_endpoint and DOCINT_AVAILABLE and DocumentIntelligenceClient is not None:
+            doc_intel_key = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY")
+            
+            # Try managed identity first if enabled
+            if self.use_managed_identity:
+                try:
+                    print("🔐 Attempting Document Intelligence with Managed Identity...")
+                    doc_intel_cred = DefaultAzureCredential()
+                    self.doc_intel_client = DocumentIntelligenceClient(
+                        endpoint=self.doc_intel_endpoint,
+                        credential=doc_intel_cred
+                    )
+                    # Test the connection with a simple operation
+                    print("✅ Document Intelligence using Managed Identity")
+                    self._doc_intel_available = True
+                except Exception as e:
+                    error_msg = str(e)
+                    if "AADSTS" in error_msg or "Conditional Access" in error_msg:
+                        print("⚠️  Managed Identity blocked by Conditional Access policies")
+                    else:
+                        print(f"⚠️  Managed Identity failed: {error_msg[:100]}...")
+                    # Fall through to try API key
+            
+            # Try API key if managed identity not used or failed
+            if not self.doc_intel_client and doc_intel_key:
+                try:
+                    print("🔑 Attempting Document Intelligence with API key...")
+                    self.doc_intel_client = DocumentIntelligenceClient(
+                        endpoint=self.doc_intel_endpoint,
+                        credential=AzureKeyCredential(doc_intel_key)
+                    )
+                    print("✅ Document Intelligence client initialized with API key")
+                    self._doc_intel_available = True
+                except Exception as e:
+                    print(f"⚠️  API key initialization failed: {str(e)[:100]}...")
+        
+        if not self._doc_intel_available:
+            print("ℹ️  Document Intelligence not available - using PyPDF2 for text extraction")
+            print("   Note: PyPDF2 works well for text-based PDFs but may have issues with scanned documents")
 
     def create_index(self) -> bool:
         """Create the search index if it doesn't exist.
@@ -214,22 +249,55 @@ class KnowledgeBaseIndexer:
         Returns:
             Extracted text content
         """
-        if self.doc_intel_client:
-            # Use Azure Document Intelligence for better OCR and layout
-            with open(pdf_path, "rb") as f:
-                poller = self.doc_intel_client.begin_analyze_document(
-                    "prebuilt-layout", f
-                )
-                result = poller.result()
-                return result.content
-        else:
-            # Fallback to PyPDF2 for local processing
-            text = []
-            with open(pdf_path, "rb") as f:
-                pdf_reader = PyPDF2.PdfReader(f)
-                for page in pdf_reader.pages:
-                    text.append(page.extract_text())
-            return "\n".join(text)
+        # Try Document Intelligence first if configured and available
+        if self.doc_intel_client and self._doc_intel_available:
+            try:
+                with open(pdf_path, "rb") as f:
+                    poller = self.doc_intel_client.begin_analyze_document(
+                        "prebuilt-layout", f
+                    )
+                    result = poller.result()
+                    if not hasattr(self, '_doc_intel_success_shown'):
+                        print("  └─ ✅ Using Azure Document Intelligence for OCR")
+                        self._doc_intel_success_shown = True
+                    return result.content
+            except Exception as e:
+                error_msg = str(e)
+                # Check for authentication errors
+                if "AuthenticationTypeDisabled" in error_msg:
+                    if not hasattr(self, '_auth_disabled_shown'):
+                        print("  └─ ⚠️  Document Intelligence has key-based auth disabled")
+                        print("  └─ ℹ️  This resource requires managed identity or Entra ID authentication")
+                        print("  └─ ℹ️  Switching to PyPDF2 for all remaining files")
+                        self._auth_disabled_shown = True
+                    self.doc_intel_client = None  # Disable for remaining files
+                    self._doc_intel_available = False
+                elif "Forbidden" in error_msg or "401" in error_msg or "403" in error_msg:
+                    if not hasattr(self, '_auth_error_shown'):
+                        print("  └─ ⚠️  Document Intelligence authentication error")
+                        print("  └─ ℹ️  Switching to PyPDF2 for all remaining files")
+                        self._auth_error_shown = True
+                    self.doc_intel_client = None
+                    self._doc_intel_available = False
+                else:
+                    # Log other errors but continue with fallback
+                    print(f"  └─ ⚠️  Document Intelligence error: {error_msg[:150]}...")
+                # Fall through to PyPDF2
+        
+        # Fallback to PyPDF2 for local processing
+        if not hasattr(self, '_pypdf2_fallback_shown'):
+            print("  └─ 📄 Using PyPDF2 for text extraction")
+            self._pypdf2_fallback_shown = True
+        
+        text = []
+        with open(pdf_path, "rb") as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            for page in pdf_reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text.append(page_text)
+        
+        return "\n".join(text)
 
     def extract_metadata_from_filename(self, filename: str) -> Dict[str, Any]:
         """

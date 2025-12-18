@@ -1,28 +1,30 @@
 """
-Quick Orchestrator Test with Fallback
-Tests the workflow using ComplianceValidatorAgent instead of ComplianceAgent
+Quick Orchestrator Test
+Tests the workflow using updated agents with Agent Framework
 """
 
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+import asyncio
+import os
+
+# Import agents
+from agents.document_ingestion_agent import DocumentIngestionAgent
+from agents.summarization_agent import SummarizationAgent
+from agents.compliance_agent import ComplianceAgent
+from agents.risk_scoring_agent import RiskScoringAgent
+from agents.email_trigger_agent import EmailTriggerAgent
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 print('=' * 80)
-print('ORCHESTRATOR WORKFLOW TEST (with fallback)')
+print('ORCHESTRATOR WORKFLOW TEST')
 print('=' * 80)
 
 # Load environment
 load_dotenv()
-
-# Import agents individually
-from agents.document_ingestion_agent import DocumentIngestionAgent
-from agents.summarization_agent import SummarizationAgent
-from agents.compliance_validator_agent import ComplianceValidatorAgent  # Using old agent
-from agents.risk_scoring_agent import RiskScoringAgent
-from agents.email_trigger_agent import EmailTriggerAgent
 
 # Find a sample file
 sample_dir = Path('knowledge_base/sample_proposals')
@@ -44,8 +46,30 @@ print()
 # Initialize agents
 print('1. Initializing Agents...')
 doc_agent = DocumentIngestionAgent(use_azure=False)
-summary_agent = SummarizationAgent(use_azure=False)
-compliance_agent = ComplianceValidatorAgent(use_azure_search=False)
+
+# Initialize SummarizationAgent with required parameters
+project_endpoint = os.getenv("AZURE_AI_PROJECT_ENDPOINT", "")
+deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
+summary_agent = SummarizationAgent(
+    project_endpoint=project_endpoint,
+    model_deployment_name=deployment_name,
+    use_managed_identity=False,
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+)
+
+# Initialize ComplianceAgent with required parameters
+search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
+search_index = os.getenv("AZURE_SEARCH_INDEX_NAME", "grant-compliance-index")
+compliance_agent = ComplianceAgent(
+    project_endpoint=project_endpoint,
+    model_deployment_name=deployment_name,
+    search_endpoint=search_endpoint,
+    search_index_name=search_index,
+    azure_search_document_truncation_size=1000,
+    use_managed_identity=False,
+    search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
+)
+
 risk_agent = RiskScoringAgent()
 email_agent = EmailTriggerAgent(use_graph_api=False)
 print('   ✅ All agents initialized')
@@ -63,17 +87,19 @@ try:
     
     # Step 2: Summarization
     print('\n📋 Step 2: Summarization')
-    summary = summary_agent.generate_summary(document_data['text'], metadata)
+    summary = asyncio.run(summary_agent.generate_summary(
+        document_data['text'],
+        metadata.get('file_name', 'Unknown')
+    ))
     key_clauses = len(summary.get('key_clauses', []))
     print(f'   ✅ Generated summary with {key_clauses} key clauses')
     
     # Step 3: Compliance Validation
     print('\n✅ Step 3: Compliance Validation')
-    compliance_report = compliance_agent.validate_compliance(
+    compliance_report = asyncio.run(compliance_agent.analyze_proposal(
         document_data['text'],
-        summary,
-        metadata
-    )
+        context=metadata
+    ))
     compliance_score = compliance_report['compliance_score']
     status = compliance_report['overall_status']
     print(f'   ✅ Compliance: {compliance_score:.1f}% ({status})')
@@ -99,15 +125,15 @@ try:
             summary,
             metadata
         )
-        print(f'   ⚠️  Would send email (disabled for test)')
+        print('   ⚠️  Would send email (disabled for test)')
     else:
-        print(f'   ℹ️  No notification required')
+        print('   ℹ️  No notification required')
     
     # Summary
     print('\n' + '=' * 80)
     print('WORKFLOW SUMMARY')
     print('=' * 80)
-    print(f'\n✅ All 5 steps completed successfully!')
+    print('\n✅ All 5 steps completed successfully!')
     print(f'\nDocument: {metadata.get("file_name", "Unknown")}')
     print(f'Compliance Score: {compliance_score:.1f}%')
     print(f'Risk Score: {risk_score:.1f}%')

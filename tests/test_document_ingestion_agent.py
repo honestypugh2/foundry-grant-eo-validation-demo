@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.document_ingestion_agent import DocumentIngestionAgent
 from dotenv import load_dotenv
@@ -97,8 +97,8 @@ Expected Impact:
                 result = agent.process_document(str(sample_file))
                 
                 # Display results
-                print(f"✅ Successfully processed!")
-                print(f"\n📊 Metadata:")
+                print("✅ Successfully processed!")
+                print("\n📊 Metadata:")
                 metadata = result.get('metadata', {})
                 for key, value in metadata.items():
                     if key == 'file_path':

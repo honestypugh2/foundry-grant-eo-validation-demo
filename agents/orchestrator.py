@@ -35,16 +35,23 @@ class AgentOrchestrator:
         
         # Initialize all agents
         self.document_agent = DocumentIngestionAgent(use_azure=use_azure)
-        self.summary_agent = SummarizationAgent(use_azure=use_azure)
         
-        # Initialize ComplianceAgent with configuration
+        # Initialize configuration from environment
         project_endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT", "")
-        deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4")
+        deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
         search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
         search_index = os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX", "grant-compliance-index")
         
         # Check if we should use managed identity (only in production/Azure environments)
         use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "true"
+        
+        # Initialize SummarizationAgent with Agent Framework
+        self.summary_agent = SummarizationAgent(
+            project_endpoint=project_endpoint,
+            model_deployment_name=deployment_name,
+            use_managed_identity=use_managed_identity,
+            api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
+        )
         
         if use_azure and search_endpoint:
             # For Azure services with API keys (local development and most deployments)
@@ -53,10 +60,9 @@ class AgentOrchestrator:
                 model_deployment_name=deployment_name,
                 search_endpoint=search_endpoint,
                 search_index_name=search_index,
+                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "10000")),
                 use_managed_identity=use_managed_identity,
-                api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
                 search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "10000"))
             )
         else:
             # For local development without Azure Search, use environment variables with API keys
@@ -65,10 +71,9 @@ class AgentOrchestrator:
                 model_deployment_name=deployment_name,
                 search_endpoint=search_endpoint,
                 search_index_name=search_index,
+                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
                 use_managed_identity=False,
-                api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
                 search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000"))
             )
         
         self.risk_agent = RiskScoringAgent()
@@ -112,7 +117,7 @@ class AgentOrchestrator:
             
             # Step 2: Summarization
             logger.info("Step 2: Summarization")
-            summary = self.summary_agent.generate_summary(
+            summary = await self.summary_agent.generate_summary(
                 document_data['text'],
                 metadata
             )
