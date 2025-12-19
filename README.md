@@ -6,6 +6,8 @@
 
 More images can be found at [images directory](images/).
 
+> **📌 Note**: To use the Streamlit app, navigate to the project root directory before running `streamlit run app/streamlit_app_new.py`.
+
 ---
 
 ## ⚠️ IMPORTANT: DEMONSTRATION PURPOSES ONLY
