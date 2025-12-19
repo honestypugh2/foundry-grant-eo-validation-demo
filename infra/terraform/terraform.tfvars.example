@@ -1,0 +1,23 @@
+# Terraform variable values
+# Copy this file to terraform.tfvars and fill in your values
+
+environment_name = "dev"
+location         = "eastus"
+resource_prefix  = "grant-eo"
+
+# Optional: Your user principal ID for role assignments
+# Get it with: az ad signed-in-user show --query id -o tsv
+# principal_id = ""
+
+# Optional: Custom tags
+# tags = {
+#   "department" = "legal"
+#   "cost-center" = "12345"
+# }
+
+# Optional: Override default values
+# openai_deployment_name = "gpt-4"
+# openai_model_version   = "2024-05-13"
+# search_index_name      = "grant-compliance-index"
+# storage_container_name = "documents"
+# app_service_sku        = "B1"
