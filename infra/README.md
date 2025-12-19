@@ -40,10 +40,10 @@ Both Bicep and Terraform templates deploy the following Azure resources:
 | **Azure Document Intelligence** | Document processing and OCR extraction | S0, Form recognition + layout analysis |
 | **Azure AI Search** | Semantic search and retrieval | Basic tier with semantic search |
 | **Azure Blob Storage** | Document storage and management | Standard RAGRS with 7-day retention |
-| **Azure Key Vault** | Secrets management | Standard, RBAC-enabled (commented out) |
+| **Azure Key Vault (not used for Demo)** | Secrets management | Standard, RBAC-enabled (commented out) |
 | **Azure Monitor** | Logging and monitoring | Log Analytics + Application Insights |
-| **Azure Function Apps** | Serverless email notifications and workflows | Consumption (Y1), Python 3.11 (commented out) |
-| **App Service Plan** | Web application hosting | B1 (Basic) - Linux (commented out) |
+| **Azure Function Apps (not used for Demo)** | Serverless email notifications and workflows | Consumption (Y1), Python 3.11 (commented out) |
+| **App Service Plan (not used for Demo)** | Web application hosting | B1 (Basic) - Linux (commented out) |
 | **Backend App Service** | FastAPI REST API | Python 3.12 runtime (commented out) |
 | **Frontend App Service** | React/Vite web UI | Node.js 20 LTS runtime (commented out) |
 
