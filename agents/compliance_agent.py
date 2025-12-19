@@ -26,7 +26,7 @@ class ComplianceAgent:
         search_endpoint: str,
         search_index_name: str,
         azure_search_document_truncation_size: int,
-        use_managed_identity: bool = False,
+        use_managed_identity: bool = True,
         search_api_key: Optional[str] = None,
     ):
         """
@@ -54,8 +54,10 @@ class ComplianceAgent:
 
         # Set up credentials
         if use_managed_identity:
-            self.credential = DefaultAzureCredential()
-            self.search_credential = DefaultAzureCredential()
+            # Exclude EnvironmentCredential to avoid Conditional Access blocking
+            # Service principal credentials in .env may be blocked by CA policies or have invalid values
+            self.credential = DefaultAzureCredential(exclude_environment_credential=True)
+            self.search_credential = DefaultAzureCredential(exclude_environment_credential=True)
         else:
             self.credential = None  # Will use API key in client
             if search_api_key is None:

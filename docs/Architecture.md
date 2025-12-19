@@ -14,28 +14,31 @@ The Grant Proposal Compliance Automation system is built on a multi-agent archit
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Client Layer                                │
 │  ┌──────────────────────┐         ┌──────────────────────┐        │
-│  │   React Frontend     │         │  Streamlit Demo      │        │
-│  │   (Production)       │         │  (Legacy)            │        │
+│  │   React Frontend     │         │  Streamlit App       │        │
+│  │   (React 19.2.3)     │         │  (Async v2.0)        │        │
+│  │   Production SPA     │         │  Demo/Development    │        │
 │  └──────────┬───────────┘         └──────────┬───────────┘        │
 └─────────────┼────────────────────────────────┼────────────────────┘
-              │                                 │
-              └─────────────┬───────────────────┘
-                            │ HTTPS
-                            ▼
+              │ REST API (HTTPS)                │ Direct Async Calls
+              ▼                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      Application Layer                              │
+│  ┌───────────────────────┐      ┌──────────────────────────────┐   │
+│  │  FastAPI Backend      │      │  Streamlit Runtime           │   │
+│  │  (Async/Await)        │      │  (asyncio.run)               │   │
+│  └───────────┬───────────┘      └──────────────┬───────────────┘   │
+│              │                                  │                   │
+│              └──────────────┬───────────────────┘                   │
+│                             ▼                                       │
 │  ┌───────────────────────────────────────────────────────────┐     │
-│  │                  FastAPI Backend                          │     │
+│  │           Agent Orchestrator (Async)                      │     │
 │  │  ┌────────────────────────────────────────────────────┐   │     │
-│  │  │           Agent Orchestrator                       │   │     │
-│  │  │  ┌──────────────────────────────────────────────┐ │   │     │
-│  │  │  │  Multi-Agent Coordination Pipeline          │ │   │     │
-│  │  │  │  1. Document Ingestion Agent                │ │   │     │
-│  │  │  │  2. Summarization Agent                     │ │   │     │
-│  │  │  │  3. Compliance Agent                        │ │   │     │
-│  │  │  │  4. Risk Scoring Agent                      │ │   │     │
-│  │  │  │  5. Email Trigger Agent                     │ │   │     │
-│  │  │  └──────────────────────────────────────────────┘ │   │     │
+│  │  │  Multi-Agent Coordination Pipeline (Async)        │   │     │
+│  │  │  1. Document Ingestion Agent                      │   │     │
+│  │  │  2. Summarization Agent                           │   │     │
+│  │  │  3. Compliance Agent                              │   │     │
+│  │  │  4. Risk Scoring Agent                            │   │     │
+│  │  │  5. Email Trigger Agent                           │   │     │
 │  │  └────────────────────────────────────────────────────┘   │     │
 │  └───────────────────────────────────────────────────────────┘     │
 └─────────────────────────────────────────────────────────────────────┘
@@ -252,10 +255,11 @@ Orchestrator Agent (Coordinator)
 ## Technology Stack
 
 ### Frontend
-- **React 18**: UI framework
-- **TypeScript**: Type-safe JavaScript
-- **TailwindCSS**: Utility-first styling
-- **Vite**: Build tool and dev server
+- **React 19.2.3**: UI framework (CVE-2025-55182 patched, latest secure version)
+- **TypeScript 5.7.3**: Type-safe JavaScript with enhanced type checking
+- **TailwindCSS 3.4.19**: Utility-first styling
+- **Vite 6.4.1**: Build tool and dev server
+- **React Router 7.11.0**: Client-side routing
 
 ### Backend
 - **FastAPI**: Python async web framework
@@ -389,6 +393,39 @@ Orchestrator Agent (Coordinator)
 - [RAG Pattern](https://learn.microsoft.com/azure/search/retrieval-augmented-generation-overview)
 
 ---
+
+## Version History
+
+### v2.0 (December 2025) - Current
+**Major Updates:**
+- ✅ **React 19.2.3** - Upgraded from React 18.3.1 (CVE-2025-55182 patched)
+- ✅ **React Router 7.11.0** - Major upgrade for React 19 compatibility
+- ✅ **TypeScript 5.7.3** - Latest stable with enhanced type checking
+- ✅ **Streamlit Async Migration** - Now uses `asyncio.run()` with `process_grant_proposal_async()`
+- ✅ **Security Hardening** - 0 npm vulnerabilities, all dependencies updated
+- ✅ **Managed Identity Default** - Azure authentication modernized
+
+**Security:**
+- CVE-2025-55182 (React2Shell) fully mitigated with React 19.2.3
+- Architecture verified as not vulnerable to React Server Components exploits
+- All Azure SDKs updated to latest secure versions
+
+**Breaking Changes:**
+- Streamlit: Legacy mock data version removed, now requires async orchestrator
+- React: Upgraded from 18 to 19 (may require component updates)
+- React Router: Upgraded from v6 to v7 (routing API changes)
+
+### v1.0 (November 2025)
+**Initial Release:**
+- Multi-agent architecture with Azure AI Agent Framework
+- React 18.2.0 frontend with TypeScript
+- FastAPI async backend
+- Comprehensive documentation
+
+---
+
+**Last Updated**: December 18, 2025  
+**Version**: 2.0
 
 **Last Updated**: November 2025  
 **Version**: 1.0

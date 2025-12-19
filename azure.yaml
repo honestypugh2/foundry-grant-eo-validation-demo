@@ -1,0 +1,105 @@
+# Azure Developer CLI (azd) configuration
+# https://learn.microsoft.com/azure/developer/azure-developer-cli/
+
+name: grant-eo-validation
+metadata:
+  template: grant-eo-validation@0.0.1-beta
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+# Services commented out - deploy infrastructure only due to App Service quota limitations
+# Run backend and frontend locally instead
+# services:
+#   backend:
+#     project: ./backend
+#     language: python
+#     host: appservice
+#     
+#   frontend:
+#     project: ./frontend
+#     language: js
+#     host: appservice
+    
+hooks:
+  # Install dependencies before provisioning
+  preprovision:
+    posix:
+      shell: sh
+      run: |
+        set +e  # Don't exit on errors for interactive prompts
+        echo "Preparing for provisioning..."
+        
+        # Prompt for environment name if not set
+        if [ -z "$AZURE_ENV_NAME" ]; then
+          echo ""
+          printf "Enter environment name (e.g., dev, staging, prod, demo): "
+          read ENV_NAME
+          if [ -n "$ENV_NAME" ]; then
+            azd env set AZURE_ENV_NAME "$ENV_NAME"
+            echo "Environment name set: $ENV_NAME"
+          else
+            echo "ERROR: Environment name is required"
+            exit 1
+          fi
+        fi
+        
+        # Always prompt for location to allow user to set/change it
+        CURRENT_LOCATION="${AZURE_LOCATION:-eastus}"
+        echo ""
+        printf "Enter Azure region [$CURRENT_LOCATION]: "
+        read LOCATION
+        LOCATION=${LOCATION:-$CURRENT_LOCATION}
+        azd env set AZURE_LOCATION "$LOCATION"
+        echo "Location set: $LOCATION"
+        
+        # Prompt for resource prefix if not set
+        if [ -z "$AZURE_RESOURCE_PREFIX" ]; then
+          echo ""
+          printf "Enter resource naming prefix [grant-eo]: "
+          read PREFIX
+          PREFIX=${PREFIX:-grant-eo}
+          azd env set AZURE_RESOURCE_PREFIX "$PREFIX"
+          echo "Resource prefix set: $PREFIX"
+        fi
+        
+        # Auto-detect principal ID if not provided
+        if [ -z "$AZURE_PRINCIPAL_ID" ]; then
+          echo ""
+          echo "Auto-detecting Azure user principal ID..."
+          PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv 2>/dev/null || echo "")
+          if [ -n "$PRINCIPAL_ID" ]; then
+            azd env set AZURE_PRINCIPAL_ID "$PRINCIPAL_ID"
+            echo "Principal ID set: $PRINCIPAL_ID"
+          else
+            echo "Warning: Could not auto-detect principal ID. RBAC role assignments may fail."
+          fi
+        fi
+        echo ""
+        set -e  # Re-enable exit on error
+        
+  # Post-provision: Index knowledge base and configure resources
+  postprovision:
+    posix:
+      shell: sh
+      run: |
+        echo "Running post-provision setup..."
+        echo "To index knowledge base, run: python scripts/index_knowledge_base.py"
+        
+  # Pre-deployment: Run tests
+  predeploy:
+    posix:
+      shell: sh
+      run: |
+        echo "Running pre-deployment checks..."
+        
+  # Post-deployment: Verify deployment
+  postdeploy:
+    posix:
+      shell: sh
+      run: |
+        echo "Deployment complete!"
+        echo "Backend API: $AZURE_BACKEND_URL"
+        echo "Frontend URL: $AZURE_FRONTEND_URL"

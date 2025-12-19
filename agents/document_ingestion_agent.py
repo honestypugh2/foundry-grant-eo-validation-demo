@@ -18,20 +18,25 @@ class DocumentIngestionAgent:
     Supports PDF, DOCX, and TXT files with OCR capabilities via Azure Document Intelligence.
     """
     
-    def __init__(self, use_azure: bool = False):
+    def __init__(self, use_azure: bool = False, use_managed_identity: bool = True):
         """
         Initialize the Document Ingestion Agent.
         
         Args:
             use_azure: If True, use Azure Document Intelligence for OCR. Otherwise, use local processing.
+            use_managed_identity: If True, use managed identity for authentication instead of API key. Defaults to True.
         """
         self.use_azure = use_azure
+        self.use_managed_identity = use_managed_identity if use_managed_identity is not None else os.getenv('USE_MANAGED_IDENTITY', 'true').lower() == 'true'
         self.azure_endpoint = os.getenv('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT')
         self.azure_key = os.getenv('AZURE_DOCUMENT_INTELLIGENCE_API_KEY')
         
         if self.use_azure and not self.azure_endpoint:
             logger.warning("Azure Document Intelligence not configured. Falling back to local processing.")
             self.use_azure = False
+        
+        if self.use_azure and self.use_managed_identity:
+            logger.info("Using managed identity for Azure Document Intelligence authentication")
     
     def process_document(self, file_path: str, file_name: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -116,19 +121,38 @@ class DocumentIngestionAgent:
     def _process_with_azure(self, file_path: str) -> Dict[str, Any]:
         """Process document using Azure Document Intelligence (OCR-enabled)."""
         try:
-            from azure.ai.formrecognizer import DocumentAnalysisClient
+            from azure.ai.documentintelligence import DocumentIntelligenceClient
+            from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
             from azure.core.credentials import AzureKeyCredential
+            from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
             
-            if not self.azure_endpoint or not self.azure_key:
-                raise ValueError("Azure Document Intelligence endpoint and key are required")
+            if not self.azure_endpoint:
+                raise ValueError("Azure Document Intelligence endpoint is required")
             
-            client = DocumentAnalysisClient(
-                endpoint=self.azure_endpoint,
-                credential=AzureKeyCredential(self.azure_key)
-            )
+            # Use managed identity or API key authentication
+            if self.use_managed_identity:
+                logger.info("Authenticating with managed identity")
+                # Exclude EnvironmentCredential to avoid Conditional Access blocking
+                # Service principal credentials in .env are blocked by CA policies
+                credential = DefaultAzureCredential(exclude_environment_credential=True)
+                client = DocumentIntelligenceClient(
+                    endpoint=self.azure_endpoint,
+                    credential=credential
+                )
+            else:
+                if not self.azure_key:
+                    raise ValueError("Azure Document Intelligence API key is required when not using managed identity")
+                logger.info("Authenticating with API key")
+                client = DocumentIntelligenceClient(
+                    endpoint=self.azure_endpoint,
+                    credential=AzureKeyCredential(self.azure_key)
+                )
             
             with open(file_path, 'rb') as f:
-                poller = client.begin_analyze_document("prebuilt-document", document=f)
+                poller = client.begin_analyze_document(
+                    model_id="prebuilt-layout",
+                    body=f
+                )
                 result = poller.result()
             
             # Extract text

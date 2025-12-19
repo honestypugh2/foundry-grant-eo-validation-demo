@@ -202,8 +202,11 @@ The system uses three complementary scores to evaluate grant proposals and guide
 
 ### Development Tools
 
-- **Streamlit**: Interactive demo application
-- **Python**: Primary development language
+- **React 19.2.3**: Modern UI framework (CVE-2025-55182 patched)
+- **Streamlit**: Interactive demo application with async processing
+- **FastAPI**: High-performance async Python web framework
+- **Python 3.10+**: Primary development language
+- **TypeScript 5.7.3**: Type-safe JavaScript development
 - **Microsoft Agent Framework**: Agent development SDK
 
 ## Agent Customization
@@ -397,6 +400,16 @@ AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_doc_intel_key_here
 # Set to "false" for local development with API keys
 # Set to "true" for production with Managed Identity
 USE_MANAGED_IDENTITY=false
+
+# Demo Configuration
+DEMO_MODE=true
+
+# Knowledge Base Configuration
+# Set to "azure" to use Azure AI Search, "local" to use local file system
+KNOWLEDGE_BASE_SOURCE=local
+KNOWLEDGE_BASE_PATH=./knowledge_base
+KNOWLEDGE_BASE_EXECUTIVE_ORDERS_PATH=./knowledge_base/sample_executive_orders
+SAMPLE_PROPOSALS_PATH=./knowledge_base/sample_proposals
 ```
 
 #### 3. Start the Application
@@ -785,6 +798,8 @@ foundry-grant-eo-validation-demo/
 
 This project welcomes contributions and suggestions. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+For recent changes and version history, see [CHANGELOG.md](CHANGELOG.md).
+
 ## Resources
 
 ### Documentation
@@ -794,6 +809,7 @@ This project welcomes contributions and suggestions. Please see [CONTRIBUTING.md
 - [Microsoft Agent Framework](https://github.com/microsoft/agent-framework)
 
 ### Project Guides
+- [📝 CHANGELOG](CHANGELOG.md) - **Version history and recent updates**
 - [⚡ Quick Deploy to Azure](docs/QuickDeploy.md) - **Deploy to Azure in under 10 minutes**
 - [⚛️ React App Quick Start](docs/ReactQuickstart.md) - **Get the React frontend running in 60 seconds**
 - [🏗️ System Architecture](docs/Architecture.md) - **Comprehensive architecture documentation**

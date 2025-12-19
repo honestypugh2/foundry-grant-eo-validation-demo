@@ -248,12 +248,12 @@ async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
     """Get knowledge base information from Azure AI Search."""
     try:
         from azure.core.credentials import AzureKeyCredential
-        from azure.search.documents import SearchClient
-        from azure.identity import DefaultAzureCredential
+        from azure.search.documents.aio import SearchClient
+        from azure.identity.aio import DefaultAzureCredential
         
         search_endpoint = os.getenv('AZURE_SEARCH_ENDPOINT')
         search_index = os.getenv('AZURE_SEARCH_INDEX_NAME', 'grant-compliance-index')
-        use_managed_identity = os.getenv('USE_MANAGED_IDENTITY', 'false').lower() == 'true'
+        use_managed_identity = os.getenv('USE_MANAGED_IDENTITY', 'true').lower() == 'true'
         
         if not search_endpoint:
             raise HTTPException(
@@ -263,7 +263,9 @@ async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
         
         # Set up credentials
         if use_managed_identity:
-            credential = DefaultAzureCredential()
+            # Exclude EnvironmentCredential to avoid Conditional Access blocking
+            # Service principal credentials in .env may be blocked by CA policies or have invalid values
+            credential = DefaultAzureCredential(exclude_environment_credential=True)
         else:
             search_key = os.getenv('AZURE_SEARCH_API_KEY')
             if not search_key:
@@ -273,39 +275,49 @@ async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
                 )
             credential = AzureKeyCredential(search_key)
         
-        # Initialize search client
+        # Initialize async search client
         search_client = SearchClient(
             endpoint=search_endpoint,
             index_name=search_index,
             credential=credential
         )
         
-        # Query for executive orders
-        eo_results = list(search_client.search(
-            search_text="*",
-            filter="document_type eq 'executive_order'",
-            select=["title", "executive_order_number", "category"],
-            top=1000
-        ))
-        
-        executive_orders = [
-            {
-                'name': doc.get('title', 'Unknown'),
-                'type': 'indexed',
-                'eo_number': doc.get('executive_order_number'),
-                'category': doc.get('category')
+        try:
+            # Query for executive orders (async)
+            eo_results = []
+            search_results = await search_client.search(
+                search_text="*",
+                filter="document_type eq 'executive_order'",
+                select=["title", "executive_order_number", "category"],
+                top=1000
+            )
+            
+            async for doc in search_results:
+                eo_results.append(doc)
+            
+            executive_orders = [
+                {
+                    'name': doc.get('title', 'Unknown'),
+                    'type': 'indexed',
+                    'eo_number': doc.get('executive_order_number'),
+                    'category': doc.get('category')
+                }
+                for doc in eo_results
+            ]
+            
+            return {
+                'source': 'azure',
+                'index_name': search_index,
+                'executive_orders_count': len(eo_results),
+                'sample_proposals_count': 0,  # Proposals are processed on-demand, not indexed
+                'executive_orders': executive_orders,
+                'sample_proposals': []
             }
-            for doc in eo_results
-        ]
-        
-        return {
-            'source': 'azure',
-            'index_name': search_index,
-            'executive_orders_count': len(eo_results),
-            'sample_proposals_count': 0,  # Proposals are processed on-demand, not indexed
-            'executive_orders': executive_orders,
-            'sample_proposals': []
-        }
+        finally:
+            # Clean up async client
+            await search_client.close()
+            if use_managed_identity and hasattr(credential, 'close'):
+                await credential.close() # type: ignore
         
     except ImportError:
         logger.error("Azure Search packages not installed. Run: pip install azure-search-documents azure-identity")

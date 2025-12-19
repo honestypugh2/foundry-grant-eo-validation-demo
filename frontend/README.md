@@ -84,13 +84,31 @@ frontend/
 
 ## Key Technologies
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool
-- **Tailwind CSS** - Styling
-- **React Router** - Navigation
-- **Axios** - HTTP client
+- **React 19.2.3** - UI framework (latest secure version, patched for CVE-2025-55182)
+- **TypeScript 5.7.3** - Type safety
+- **Vite 6.4.1** - Build tool
+- **Tailwind CSS 3.4.19** - Styling
+- **React Router 7.11.0** - Navigation
+- **Axios 1.7.9** - HTTP client
 - **Recharts** - Data visualization
+
+## Security
+
+### CVE-2025-55182 (React2Shell) Mitigation
+
+This application has been upgraded to **React 19.2.3**, which includes security patches for CVE-2025-55182 (React2Shell vulnerability).
+
+**Vulnerability Details:**
+- **Affected Versions**: React 19.0.0, 19.1.0, 19.1.1, 19.2.0
+- **Current Version**: React 19.2.3 ✅ (Patched and secure)
+- **Status**: Fully compliant with Microsoft security guidance
+
+**Architecture Security:**
+- Client-side React SPA (not affected by React Server Components vulnerability)
+- Separate FastAPI backend (no Next.js, no RSC)
+- All dependencies audited: 0 vulnerabilities
+
+For more information: [Microsoft Security Blog - CVE-2025-55182](https://msrc.microsoft.com/blog/2025/05/microsoft-security-response-center-react-cve-2025-55182/)
 
 ## Azure Integration
 

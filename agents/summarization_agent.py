@@ -24,7 +24,7 @@ class SummarizationAgent:
         self,
         project_endpoint: str,
         model_deployment_name: str,
-        use_managed_identity: bool = False,
+        use_managed_identity: bool = True,
         api_key: Optional[str] = None,
     ):
         """
@@ -46,7 +46,9 @@ class SummarizationAgent:
         
         # Set up credentials
         if use_managed_identity:
-            self.credential = DefaultAzureCredential()
+            # Exclude EnvironmentCredential to avoid Conditional Access blocking
+            # Service principal credentials in .env may be blocked by CA policies or have invalid values
+            self.credential = DefaultAzureCredential(exclude_environment_credential=True)
         else:
             self.credential = None  # Will use API key in client
         

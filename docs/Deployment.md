@@ -86,10 +86,18 @@ uv sync
 # Activate virtual environment
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install frontend dependencies
+# Install frontend dependencies (React 19.2.3)
 cd frontend
 npm install
 cd ..
+```
+
+**Note**: The frontend uses **React 19.2.3** (CVE-2025-55182 patched). Clean installation recommended:
+```bash
+cd frontend
+rm -rf node_modules package-lock.json
+npm install
+npm audit  # Should show 0 vulnerabilities
 ```
 
 ### 3. Configure Environment

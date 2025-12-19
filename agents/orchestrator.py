@@ -33,17 +33,17 @@ class AgentOrchestrator:
         """
         self.use_azure = use_azure
         
-        # Initialize all agents
-        self.document_agent = DocumentIngestionAgent(use_azure=use_azure)
+        # Check if we should use managed identity (default: True for production-ready authentication)
+        use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
+        
+        # Initialize all agents with consistent managed identity setting
+        self.document_agent = DocumentIngestionAgent(use_azure=use_azure, use_managed_identity=use_managed_identity)
         
         # Initialize configuration from environment
         project_endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT", "")
         deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
         search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
         search_index = os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX", "grant-compliance-index")
-        
-        # Check if we should use managed identity (only in production/Azure environments)
-        use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "true"
         
         # Initialize SummarizationAgent with Agent Framework
         self.summary_agent = SummarizationAgent(

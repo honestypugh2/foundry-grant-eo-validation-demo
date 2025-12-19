@@ -1,0 +1,583 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.37.4.10188",
+      "templateHash": "4845210671763392296"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Primary location for all resources"
+      }
+    },
+    "environmentName": {
+      "type": "string",
+      "metadata": {
+        "description": "Environment name"
+      }
+    },
+    "resourcePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource naming prefix"
+      }
+    },
+    "principalId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Principal ID for role assignments"
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Tags to apply to all resources"
+      }
+    },
+    "openAIDeploymentName": {
+      "type": "string",
+      "defaultValue": "gpt-4o",
+      "metadata": {
+        "description": "Azure OpenAI deployment name"
+      }
+    },
+    "openAIModelVersion": {
+      "type": "string",
+      "defaultValue": "2024-08-06",
+      "metadata": {
+        "description": "Azure OpenAI model version"
+      }
+    },
+    "searchIndexName": {
+      "type": "string",
+      "defaultValue": "grant-compliance-index",
+      "metadata": {
+        "description": "Azure Search index name"
+      }
+    },
+    "storageContainerName": {
+      "type": "string",
+      "defaultValue": "documents",
+      "metadata": {
+        "description": "Storage container name"
+      }
+    }
+  },
+  "variables": {
+    "$fxv#0": {
+      "analysisServicesServers": "as",
+      "apiManagementService": "apim-",
+      "appConfigurationStores": "appcs-",
+      "appManagedEnvironments": "cae-",
+      "appContainerApps": "ca-",
+      "authorizationPolicyDefinitions": "policy-",
+      "automationAutomationAccounts": "aa-",
+      "blueprintBlueprints": "bp-",
+      "blueprintBlueprintsArtifacts": "bpa-",
+      "cacheRedis": "redis-",
+      "cdnProfiles": "cdnp-",
+      "cdnProfilesEndpoints": "cdne-",
+      "cognitiveServicesAccounts": "cog-",
+      "cognitiveServicesFormRecognizer": "cog-fr-",
+      "cognitiveServicesTextAnalytics": "cog-ta-",
+      "computeAvailabilitySets": "avail-",
+      "computeCloudServices": "cld-",
+      "computeDiskEncryptionSets": "des-",
+      "computeDisks": "disk-",
+      "computeDisksOs": "osdisk-",
+      "computeGalleries": "gal-",
+      "computeSnapshots": "snap-",
+      "computeVirtualMachines": "vm-",
+      "computeVirtualMachineScaleSets": "vmss-",
+      "containerInstanceContainerGroups": "ci-",
+      "containerRegistryRegistries": "cr",
+      "containerServiceManagedClusters": "aks-",
+      "databricksWorkspaces": "dbw-",
+      "dataFactoryFactories": "adf-",
+      "dataLakeAnalyticsAccounts": "dla-",
+      "dataLakeStoreAccounts": "dls-",
+      "dataMigrationServices": "dms-",
+      "dBforMySQLServers": "mysql-",
+      "dBforPostgreSQLServers": "psql-",
+      "devicesIotHubs": "iot-",
+      "devicesProvisioningServices": "provs-",
+      "devicesProvisioningServicesCertificates": "pcert-",
+      "documentDBDatabaseAccounts": "cosmos-",
+      "eventGridDomains": "evgd-",
+      "eventGridEventSubscriptions": "evgs-",
+      "eventGridTopics": "evgt-",
+      "eventHubNamespaces": "evhns-",
+      "eventHubNamespacesEventHubs": "evh-",
+      "hdInsightClustersHadoop": "hadoop-",
+      "hdInsightClustersHbase": "hbase-",
+      "hdInsightClustersKafka": "kafka-",
+      "hdInsightClustersMl": "mls-",
+      "hdInsightClustersSpark": "spark-",
+      "hdInsightClustersStorm": "storm-",
+      "hybridComputeMachines": "arcs-",
+      "insightsActionGroups": "ag-",
+      "insightsComponents": "appi-",
+      "keyVaultVaults": "kv-",
+      "kubernetesConnectedClusters": "arck-",
+      "kustoClusters": "dec-",
+      "kustoClustersDatabases": "dedb-",
+      "loadTesting": "lt-",
+      "logicIntegrationAccounts": "ia-",
+      "logicWorkflows": "logic-",
+      "machineLearningServicesWorkspaces": "mlw-",
+      "managedIdentityUserAssignedIdentities": "id-",
+      "managementManagementGroups": "mg-",
+      "migrateAssessmentProjects": "migr-",
+      "networkApplicationGateways": "agw-",
+      "networkApplicationSecurityGroups": "asg-",
+      "networkAzureFirewalls": "afw-",
+      "networkBastionHosts": "bas-",
+      "networkConnections": "con-",
+      "networkDnsZones": "dnsz-",
+      "networkExpressRouteCircuits": "erc-",
+      "networkFirewallPolicies": "afwp-",
+      "networkFirewallPoliciesWebApplication": "waf-",
+      "networkFirewallPoliciesRuleGroups": "wafrg-",
+      "networkFrontDoors": "fd-",
+      "networkFrontdoorWebApplicationFirewallPolicies": "fdfp-",
+      "networkLoadBalancersExternal": "lbe-",
+      "networkLoadBalancersInternal": "lbi-",
+      "networkLoadBalancersInboundNatRules": "rule-",
+      "networkLocalNetworkGateways": "lgw-",
+      "networkNatGateways": "ng-",
+      "networkNetworkInterfaces": "nic-",
+      "networkNetworkSecurityGroups": "nsg-",
+      "networkNetworkSecurityGroupsSecurityRules": "nsgsr-",
+      "networkNetworkWatchers": "nw-",
+      "networkPrivateDnsZones": "pdnsz-",
+      "networkPrivateLinkServices": "pl-",
+      "networkPublicIPAddresses": "pip-",
+      "networkPublicIPPrefixes": "ippre-",
+      "networkRouteFilters": "rf-",
+      "networkRouteTables": "rt-",
+      "networkRouteTablesRoutes": "udr-",
+      "networkTrafficManagerProfiles": "traf-",
+      "networkVirtualNetworkGateways": "vgw-",
+      "networkVirtualNetworks": "vnet-",
+      "networkVirtualNetworksSubnets": "snet-",
+      "networkVirtualNetworksVirtualNetworkPeerings": "peer-",
+      "networkVirtualWans": "vwan-",
+      "networkVpnGateways": "vpng-",
+      "networkVpnGatewaysVpnConnections": "vcn-",
+      "networkVpnGatewaysVpnSites": "vst-",
+      "notificationHubsNamespaces": "ntfns-",
+      "notificationHubsNamespacesNotificationHubs": "ntf-",
+      "operationalInsightsWorkspaces": "log-",
+      "portalDashboards": "dash-",
+      "powerBIDedicatedCapacities": "pbi-",
+      "purviewAccounts": "pview-",
+      "recoveryServicesVaults": "rsv-",
+      "resourcesResourceGroups": "rg-",
+      "searchSearchServices": "srch-",
+      "serviceBusNamespaces": "sb-",
+      "serviceBusNamespacesQueues": "sbq-",
+      "serviceBusNamespacesTopics": "sbt-",
+      "serviceEndPointPolicies": "se-",
+      "serviceFabricClusters": "sf-",
+      "signalRServiceSignalR": "sigr-",
+      "sqlManagedInstances": "sqlmi-",
+      "sqlServers": "sql-",
+      "sqlServersDataWarehouse": "sqldw-",
+      "sqlServersDatabases": "sqldb-",
+      "sqlServersDatabasesStretch": "sqlstrdb-",
+      "storageStorageAccounts": "st",
+      "storageStorageAccountsVm": "stvm",
+      "storSimpleManagers": "ssimp-",
+      "streamAnalyticsCluster": "asa-",
+      "synapseWorkspaces": "syn-",
+      "synapseWorkspacesAnalyticsWorkspaces": "synw-",
+      "synapseWorkspacesSqlPoolsDedicated": "syndp-",
+      "synapseWorkspacesSqlPoolsSpark": "synsp-",
+      "timeSeriesInsightsEnvironments": "tsi-",
+      "webServerFarms": "plan-",
+      "webSitesAppService": "app-",
+      "webSitesAppServiceEnvironment": "ase-",
+      "webSitesFunctions": "func-",
+      "webStaticSites": "stapp-"
+    },
+    "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
+    "abbrs": "[variables('$fxv#0')]",
+    "cognitiveServicesOpenAIUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
+    "searchIndexDataContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')]",
+    "storageBlobDataContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "AIServices",
+      "sku": {
+        "name": "S0"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "allowProjectManagement": true,
+        "customSubDomainName": "[format('{0}-{1}-{2}', parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
+        "publicNetworkAccess": "Enabled",
+        "networkAcls": {
+          "defaultAction": "Allow"
+        },
+        "disableLocalAuth": false
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')), format('{0}-project-{1}', parameters('resourcePrefix'), parameters('environmentName')))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "displayName": "Grant EO Validation Project",
+        "description": "AI Foundry project for grant executive order validation and compliance checking"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')), parameters('openAIDeploymentName'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 110
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('openAIDeploymentName')]",
+          "version": "[parameters('openAIModelVersion')]"
+        },
+        "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+        "raiPolicyName": "Microsoft.DefaultV2"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}{1}-{2}', variables('abbrs').cognitiveServicesFormRecognizer, parameters('resourcePrefix'), parameters('environmentName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "FormRecognizer",
+      "sku": {
+        "name": "S0"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "customSubDomainName": "[format('di-{0}-{1}-{2}', parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
+        "publicNetworkAccess": "Enabled",
+        "disableLocalAuth": false
+      }
+    },
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2024-06-01-preview",
+      "name": "[format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "sku": {
+        "name": "basic"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "replicaCount": 1,
+        "partitionCount": 1,
+        "hostingMode": "default",
+        "publicNetworkAccess": "enabled",
+        "semanticSearch": "free",
+        "disableLocalAuth": false
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_RAGRS"
+      },
+      "properties": {
+        "accessTier": "Hot",
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "allowSharedKeyAccess": false,
+        "largeFileSharesState": "Enabled",
+        "publicNetworkAccess": "Disabled",
+        "allowCrossTenantReplication": false,
+        "defaultToOAuthAuthentication": false,
+        "dnsEndpointType": "Standard",
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "virtualNetworkRules": [],
+          "ipRules": [],
+          "defaultAction": "Allow"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}/{1}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default')]",
+      "properties": {
+        "containerDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        },
+        "deleteRetentionPolicy": {
+          "allowPermanentDelete": false,
+          "enabled": true,
+          "days": 7
+        },
+        "cors": {
+          "corsRules": []
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}/{1}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default')]",
+      "properties": {
+        "protocolSettings": {
+          "smb": {}
+        },
+        "cors": {
+          "corsRules": []
+        },
+        "shareDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 7
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/queueServices",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}/{1}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default')]",
+      "properties": {
+        "cors": {
+          "corsRules": []
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/tableServices",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}/{1}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default')]",
+      "properties": {
+        "cors": {
+          "corsRules": []
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+      "apiVersion": "2025-01-01",
+      "name": "[format('{0}/{1}/{2}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default', parameters('storageContainerName'))]",
+      "properties": {
+        "publicAccess": "None"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}{1}-{2}', variables('abbrs').operationalInsightsWorkspaces, parameters('resourcePrefix'), parameters('environmentName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30,
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[format('{0}{1}-{2}', variables('abbrs').insightsComponents, parameters('resourcePrefix'), parameters('environmentName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}{1}-{2}', variables('abbrs').operationalInsightsWorkspaces, parameters('resourcePrefix'), parameters('environmentName')))]",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}{1}-{2}', variables('abbrs').operationalInsightsWorkspaces, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))), parameters('principalId'), variables('cognitiveServicesOpenAIUserRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('cognitiveServicesOpenAIUserRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.Search/searchServices/{0}', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))), parameters('principalId'), variables('searchIndexDataContributorRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('searchIndexDataContributorRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix'))), parameters('principalId'), variables('storageBlobDataContributorRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('storageBlobDataContributorRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "openAIEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))), '2025-06-01').endpoint]"
+    },
+    "openAIDeploymentName": {
+      "type": "string",
+      "value": "[parameters('openAIDeploymentName')]"
+    },
+    "aiFoundryResourceName": {
+      "type": "string",
+      "value": "[format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))]"
+    },
+    "aiProjectName": {
+      "type": "string",
+      "value": "[format('{0}-project-{1}', parameters('resourcePrefix'), parameters('environmentName'))]"
+    },
+    "documentIntelligenceEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesFormRecognizer, parameters('resourcePrefix'), parameters('environmentName'))), '2025-06-01').endpoint]"
+    },
+    "searchEndpoint": {
+      "type": "string",
+      "value": "[format('https://{0}.search.windows.net', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]"
+    },
+    "searchIndexName": {
+      "type": "string",
+      "value": "[parameters('searchIndexName')]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix'))]"
+    },
+    "storageContainerName": {
+      "type": "string",
+      "value": "[parameters('storageContainerName')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}{1}-{2}', variables('abbrs').operationalInsightsWorkspaces, parameters('resourcePrefix'), parameters('environmentName')))]"
+    },
+    "applicationInsightsName": {
+      "type": "string",
+      "value": "[format('{0}{1}-{2}', variables('abbrs').insightsComponents, parameters('resourcePrefix'), parameters('environmentName'))]"
+    },
+    "applicationInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', format('{0}{1}-{2}', variables('abbrs').insightsComponents, parameters('resourcePrefix'), parameters('environmentName'))), '2020-02-02').ConnectionString]"
+    },
+    "applicationInsightsInstrumentationKey": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Insights/components', format('{0}{1}-{2}', variables('abbrs').insightsComponents, parameters('resourcePrefix'), parameters('environmentName'))), '2020-02-02').InstrumentationKey]"
+    },
+    "backendUri": {
+      "type": "string",
+      "value": "Run locally: http://localhost:8000"
+    },
+    "frontendUri": {
+      "type": "string",
+      "value": "Run locally: http://localhost:3000"
+    },
+    "aiFoundryResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+    },
+    "aiFoundryProjectId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')), format('{0}-project-{1}', parameters('resourcePrefix'), parameters('environmentName')))]"
+    },
+    "searchServiceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]"
+    },
+    "storageAccountId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]"
+    }
+  }
+}

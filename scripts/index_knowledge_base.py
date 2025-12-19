@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime
 
+# Suppress verbose Azure Identity logging ONLY for credential chain attempts
+# We still want to see actual errors
+import logging
+azure_identity_logger = logging.getLogger('azure.identity._credentials')
+azure_identity_logger.setLevel(logging.ERROR)  # Don't show INFO about credential attempts
+
 try:
     from azure.core.credentials import AzureKeyCredential
     from azure.search.documents import SearchClient
@@ -28,6 +34,7 @@ try:
     # Document Intelligence is optional
     try:
         from azure.ai.documentintelligence import DocumentIntelligenceClient
+        from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
         DOCINT_AVAILABLE = True
     except ImportError:
         DocumentIntelligenceClient = None
@@ -55,72 +62,115 @@ class KnowledgeBaseIndexer:
         if not self.search_endpoint:
             raise ValueError("AZURE_SEARCH_ENDPOINT environment variable is required")
         
-        # Set up credentials
+        # Set up credentials - try managed identity first, fall back to API keys
+        search_key = os.getenv("AZURE_SEARCH_API_KEY")
+        doc_intel_key = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY")
+        
         if self.use_managed_identity:
-            self.credential = DefaultAzureCredential()
-            self.search_credential = DefaultAzureCredential()
+            # Try managed identity, but be ready to fall back
+            try:
+                print("🔐 Attempting Managed Identity authentication...")
+                # Exclude EnvironmentCredential to avoid Conditional Access blocking
+                # Service principal credentials in .env are blocked by CA policies
+                self.credential = DefaultAzureCredential(exclude_environment_credential=True)
+                self.search_credential = DefaultAzureCredential(exclude_environment_credential=True)
+                print("✅ Managed Identity credentials initialized (excluding EnvironmentCredential)")
+            except Exception as e:
+                print(f"⚠️  Managed Identity initialization warning: {str(e)[:100]}")
+                # Fall back to API keys
+                if search_key:
+                    print("🔑 Falling back to API key authentication")
+                    self.search_credential = AzureKeyCredential(search_key)
+                    self.credential = AzureKeyCredential(doc_intel_key) if doc_intel_key else None
+                else:
+                    raise ValueError("Managed Identity failed and no AZURE_SEARCH_API_KEY provided")
         else:
-            search_key = os.getenv("AZURE_SEARCH_API_KEY")
-            doc_intel_key = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY")
             if not search_key:
                 raise ValueError("AZURE_SEARCH_API_KEY environment variable is required when not using managed identity")
             self.search_credential = AzureKeyCredential(search_key)
-            if doc_intel_key:
-                self.credential = AzureKeyCredential(doc_intel_key)
+            self.credential = AzureKeyCredential(doc_intel_key) if doc_intel_key else None
+        
+        # Initialize clients with error handling for Conditional Access
+        try:
+            self.search_client = SearchClient(
+                endpoint=self.search_endpoint,
+                index_name=self.search_index,
+                credential=self.search_credential
+            )
+            
+            self.index_client = SearchIndexClient(
+                endpoint=self.search_endpoint,
+                credential=self.search_credential
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "AADSTS53003" in error_msg or "Conditional Access" in error_msg:
+                print("\n" + "="*80)
+                print("⚠️  CONDITIONAL ACCESS POLICY BLOCKING AUTHENTICATION")
+                print("="*80)
+                print("Your organization's Conditional Access policies are blocking token issuance.")
+                print("\n💡 SOLUTIONS:")
+                print("   1. Use API key authentication instead:")
+                print("      Set USE_MANAGED_IDENTITY=false in .env")
+                print("      Provide AZURE_SEARCH_API_KEY in .env")
+                print("\n   2. Contact your Azure admin to:")
+                print("      - Add exception for this service principal")
+                print("      - Adjust CA policies for Azure AI services")
+                print("      - Grant necessary permissions")
+                print("="*80 + "\n")
+                
+                # Try to fall back to API key if available
+                search_key = os.getenv("AZURE_SEARCH_API_KEY")
+                if search_key:
+                    print("🔑 Attempting fallback to API key authentication...")
+                    self.search_credential = AzureKeyCredential(search_key)
+                    self.search_client = SearchClient(
+                        endpoint=self.search_endpoint,
+                        index_name=self.search_index,
+                        credential=self.search_credential
+                    )
+                    self.index_client = SearchIndexClient(
+                        endpoint=self.search_endpoint,
+                        credential=self.search_credential
+                    )
+                    print("✅ Successfully using API key authentication\n")
+                else:
+                    raise ValueError("Conditional Access blocking managed identity and no API key provided")
             else:
-                self.credential = None
+                raise
         
-        # Initialize clients
-        self.search_client = SearchClient(
-            endpoint=self.search_endpoint,
-            index_name=self.search_index,
-            credential=self.search_credential
-        )
-        
-        self.index_client = SearchIndexClient(
-            endpoint=self.search_endpoint,
-            credential=self.search_credential
-        )
-        
-        # Initialize Document Intelligence client with managed identity and API key fallback
+        # Initialize Document Intelligence client with managed identity
+        # Using azure-ai-documentintelligence SDK
         self.doc_intel_client = None
         self._doc_intel_available = False
+        self._doc_intel_credential = None
         
         if self.doc_intel_endpoint and DOCINT_AVAILABLE and DocumentIntelligenceClient is not None:
             doc_intel_key = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_API_KEY")
             
-            # Try managed identity first if enabled
-            if self.use_managed_identity:
-                try:
-                    print("🔐 Attempting Document Intelligence with Managed Identity...")
-                    doc_intel_cred = DefaultAzureCredential()
-                    self.doc_intel_client = DocumentIntelligenceClient(
-                        endpoint=self.doc_intel_endpoint,
-                        credential=doc_intel_cred
-                    )
-                    # Test the connection with a simple operation
-                    print("✅ Document Intelligence using Managed Identity")
-                    self._doc_intel_available = True
-                except Exception as e:
-                    error_msg = str(e)
-                    if "AADSTS" in error_msg or "Conditional Access" in error_msg:
-                        print("⚠️  Managed Identity blocked by Conditional Access policies")
-                    else:
-                        print(f"⚠️  Managed Identity failed: {error_msg[:100]}...")
-                    # Fall through to try API key
+            # Determine credential to use (don't test it yet - that happens during actual use)
+            if self.use_managed_identity or (not doc_intel_key):
+                print("🔐 Document Intelligence configured for Managed Identity")
+                self._doc_intel_credential = DefaultAzureCredential()
+                self._doc_intel_available = True
+            elif doc_intel_key:
+                print("🔑 Document Intelligence configured for API key")
+                self._doc_intel_credential = AzureKeyCredential(doc_intel_key)
+                self._doc_intel_available = True
             
-            # Try API key if managed identity not used or failed
-            if not self.doc_intel_client and doc_intel_key:
+            # Initialize client with the credential (using azure-ai-documentintelligence SDK)
+            if self._doc_intel_credential:
                 try:
-                    print("🔑 Attempting Document Intelligence with API key...")
                     self.doc_intel_client = DocumentIntelligenceClient(
                         endpoint=self.doc_intel_endpoint,
-                        credential=AzureKeyCredential(doc_intel_key)
+                        credential=self._doc_intel_credential
                     )
-                    print("✅ Document Intelligence client initialized with API key")
-                    self._doc_intel_available = True
+                    print("✅ Document Intelligence client initialized (using azure-ai-documentintelligence)\n")
                 except Exception as e:
-                    print(f"⚠️  API key initialization failed: {str(e)[:100]}...")
+                    print(f"⚠️  Warning initializing Document Intelligence: {str(e)[:100]}")
+                    print("   Will attempt to use during document processing\n")
+                    self._doc_intel_available = True  # Still try to use it
+
         
         if not self._doc_intel_available:
             print("ℹ️  Document Intelligence not available - using PyPDF2 for text extraction")
@@ -139,10 +189,48 @@ class KnowledgeBaseIndexer:
                 print(f"✅ Search index '{self.search_index}' already exists")
                 return True
             except Exception as check_error:
+                check_error_msg = str(check_error)
+                
+                # Handle Conditional Access errors
+                if "AADSTS53003" in check_error_msg or "Conditional Access" in check_error_msg:
+                    print("\n" + "="*80)
+                    print("⚠️  CONDITIONAL ACCESS BLOCKING MANAGED IDENTITY")
+                    print("="*80)
+                    print("Your organization's CA policies prevent managed identity authentication.")
+                    print("\n💡 SOLUTION: Switch to API key authentication")
+                    print("   1. Set USE_MANAGED_IDENTITY=false in .env")
+                    print("   2. Provide AZURE_SEARCH_API_KEY in .env")
+                    print("="*80 + "\n")
+                    
+                    # Try API key fallback if available
+                    search_key = os.getenv("AZURE_SEARCH_API_KEY")
+                    if search_key:
+                        print("🔑 Attempting automatic fallback to API key...")
+                        self.search_credential = AzureKeyCredential(search_key)
+                        self.index_client = SearchIndexClient(
+                            endpoint=self.search_endpoint, # type: ignore
+                            credential=self.search_credential
+                        )
+                        self.search_client = SearchClient(
+                            endpoint=self.search_endpoint, # type: ignore
+                            index_name=self.search_index,
+                            credential=self.search_credential
+                        )
+                        # Retry the check
+                        try:
+                            self.index_client.get_index(self.search_index)
+                            print(f"✅ Search index '{self.search_index}' already exists (using API key)\n")
+                            return True
+                        except Exception as retry_error:
+                            if "NotFound" not in str(retry_error) and "ResourceNotFoundError" not in str(type(retry_error).__name__):
+                                print(f"⚠️  API key check also failed: {str(retry_error)[:100]}")
+                    else:
+                        return False
+                
                 # Index doesn't exist, continue to create it
-                if "NotFound" not in str(check_error) and "ResourceNotFoundError" not in str(type(check_error).__name__):
+                if "NotFound" not in check_error_msg and "ResourceNotFoundError" not in str(type(check_error).__name__):
                     # If it's not a "not found" error, something else is wrong
-                    print(f"⚠️  Warning checking index: {check_error}")
+                    print(f"⚠️  Warning checking index: {check_error_msg[:150]}")
             
             print(f"📝 Creating search index '{self.search_index}'...")
             
@@ -232,7 +320,45 @@ class KnowledgeBaseIndexer:
                     raise create_error
             
         except Exception as e:
-            print(f"❌ Error creating index: {str(e)}")
+            error_msg = str(e)
+            
+            # Handle Conditional Access errors during index creation
+            if "AADSTS53003" in error_msg or "Conditional Access" in error_msg:
+                print("❌ Conditional Access blocking index creation")
+                
+                # Try API key fallback
+                search_key = os.getenv("AZURE_SEARCH_API_KEY")
+                if search_key:
+                    print("🔑 Retrying with API key authentication...")
+                    try:
+                        self.search_credential = AzureKeyCredential(search_key)
+                        self.index_client = SearchIndexClient(
+                            endpoint=self.search_endpoint, # type: ignore
+                            credential=self.search_credential
+                        )
+                        self.search_client = SearchClient(
+                            endpoint=self.search_endpoint, # type: ignore
+                            index_name=self.search_index,
+                            credential=self.search_credential
+                        )
+                        
+                        # Retry index creation
+                        index = SearchIndex(name=self.search_index, fields=fields) # type: ignore
+                        self.index_client.create_index(index)
+                        print(f"✅ Successfully created index '{self.search_index}' using API key\n")
+                        return True
+                    except Exception as retry_error:
+                        retry_msg = str(retry_error)
+                        if "ResourceExistsError" in str(type(retry_error).__name__) or "Conflict" in retry_msg:
+                            print(f"✅ Index '{self.search_index}' already exists\n")
+                            return True
+                        print(f"❌ API key retry failed: {retry_msg[:100]}")
+                        return False
+                else:
+                    print("\n💡 Set AZURE_SEARCH_API_KEY in .env to bypass CA restrictions")
+                    return False
+            
+            print(f"❌ Error creating index: {error_msg[:200]}")
             print("\n💡 Troubleshooting tips:")
             print("   1. Verify your AZURE_SEARCH_API_KEY has 'Contributor' or 'Admin' permissions")
             print("   2. Check that AZURE_SEARCH_ENDPOINT is correct")
@@ -250,11 +376,26 @@ class KnowledgeBaseIndexer:
             Extracted text content
         """
         # Try Document Intelligence first if configured and available
-        if self.doc_intel_client and self._doc_intel_available:
+        if self._doc_intel_available and DocumentIntelligenceClient is not None and self.doc_intel_endpoint:
             try:
+                # Create fresh credential for each document
+                # Exclude EnvironmentCredential because service principal auth is blocked by CA policies
+                # This matches how DocumentIngestionAgent works in the test environment, tests/test_document_intelligence_managed_identity.py
+                from azure.identity import AzureCliCredential, ManagedIdentityCredential, ChainedTokenCredential
+                credential = ChainedTokenCredential(
+                    ManagedIdentityCredential(),  # For Azure-hosted resources
+                    AzureCliCredential()  # For local development with 'az login'
+                )
+                client = DocumentIntelligenceClient(
+                    endpoint=self.doc_intel_endpoint,
+                    credential=credential
+                )
+                
                 with open(pdf_path, "rb") as f:
-                    poller = self.doc_intel_client.begin_analyze_document(
-                        "prebuilt-layout", f
+                    # Use the new azure-ai-documentintelligence SDK
+                    poller = client.begin_analyze_document(
+                        model_id="prebuilt-layout",
+                        body=f
                     )
                     result = poller.result()
                     if not hasattr(self, '_doc_intel_success_shown'):
@@ -262,27 +403,16 @@ class KnowledgeBaseIndexer:
                         self._doc_intel_success_shown = True
                     return result.content
             except Exception as e:
-                error_msg = str(e)
-                # Check for authentication errors
-                if "AuthenticationTypeDisabled" in error_msg:
-                    if not hasattr(self, '_auth_disabled_shown'):
-                        print("  └─ ⚠️  Document Intelligence has key-based auth disabled")
-                        print("  └─ ℹ️  This resource requires managed identity or Entra ID authentication")
-                        print("  └─ ℹ️  Switching to PyPDF2 for all remaining files")
-                        self._auth_disabled_shown = True
-                    self.doc_intel_client = None  # Disable for remaining files
-                    self._doc_intel_available = False
-                elif "Forbidden" in error_msg or "401" in error_msg or "403" in error_msg:
-                    if not hasattr(self, '_auth_error_shown'):
-                        print("  └─ ⚠️  Document Intelligence authentication error")
-                        print("  └─ ℹ️  Switching to PyPDF2 for all remaining files")
-                        self._auth_error_shown = True
-                    self.doc_intel_client = None
-                    self._doc_intel_available = False
-                else:
-                    # Log other errors but continue with fallback
-                    print(f"  └─ ⚠️  Document Intelligence error: {error_msg[:150]}...")
-                # Fall through to PyPDF2
+                # If Document Intelligence fails, fall back to PyPDF2
+                # Simple error handling - same as DocumentIngestionAgent
+                if not hasattr(self, '_doc_intel_error_shown'):
+                    print(f"  └─ ⚠️  Document Intelligence error: {type(e).__name__}: {str(e)[:200]}")
+                    print("  └─ ℹ️  Falling back to PyPDF2")
+                    self._doc_intel_error_shown = True
+                    # Print full error for debugging
+                    import traceback
+                    traceback.print_exc()
+                # Fall through to PyPDF2 below
         
         # Fallback to PyPDF2 for local processing
         if not hasattr(self, '_pypdf2_fallback_shown'):
@@ -450,12 +580,48 @@ class KnowledgeBaseIndexer:
             try:
                 list(self.search_client.search(search_text="*", top=1))
                 print(f"✅ Index '{self.search_index}' is accessible")
-            except Exception:
-                # If search fails, try to create the index
-                print("⚠️  Index check via search failed, attempting to create...")
-                if not self.create_index():
-                    print("\n❌ Failed to create or verify index. Cannot proceed.")
-                    return 0
+            except Exception as search_error:
+                search_error_msg = str(search_error)
+                
+                # Handle Conditional Access errors
+                if "AADSTS53003" in search_error_msg or "Conditional Access" in search_error_msg:
+                    print("⚠️  Conditional Access blocking index check")
+                    
+                    # Try API key fallback
+                    search_key = os.getenv("AZURE_SEARCH_API_KEY")
+                    if search_key:
+                        print("🔑 Switching to API key authentication...")
+                        try:
+                            self.search_credential = AzureKeyCredential(search_key)
+                            self.search_client = SearchClient(
+                                endpoint=self.search_endpoint, # type: ignore
+                                index_name=self.search_index,
+                                credential=self.search_credential
+                            )
+                            self.index_client = SearchIndexClient(
+                                endpoint=self.search_endpoint, # type: ignore
+                                credential=self.search_credential
+                            )
+                            
+                            # Retry the check
+                            list(self.search_client.search(search_text="*", top=1))
+                            print(f"✅ Index '{self.search_index}' is accessible (using API key)\n")
+                        except Exception:
+                            # If search still fails, try to create the index
+                            print("⚠️  Index check via search failed, attempting to create...")
+                            if not self.create_index():
+                                print("\n❌ Failed to create or verify index. Cannot proceed.")
+                                return 0
+                    else:
+                        print("\n❌ No API key available for fallback")
+                        print("💡 Set AZURE_SEARCH_API_KEY in .env to bypass CA restrictions")
+                        return 0
+                else:
+                    # If search fails for other reasons, try to create the index
+                    print("⚠️  Index check via search failed, attempting to create...")
+                    if not self.create_index():
+                        print("\n❌ Failed to create or verify index. Cannot proceed.")
+                        return 0
         
         if not directory.exists():
             print(f"❌ Directory not found: {directory}")

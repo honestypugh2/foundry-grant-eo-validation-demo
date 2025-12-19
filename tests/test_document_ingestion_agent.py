@@ -118,7 +118,7 @@ Expected Impact:
                 # Display stats
                 word_count = result.get('metadata', {}).get('word_count', len(text.split()))
                 page_count = result.get('metadata', {}).get('page_count', 1)
-                print(f"\n📈 Statistics:")
+                print("\n📈 Statistics:")
                 print(f"  Words: {word_count:,}")
                 print(f"  Pages: {page_count}")
                 print(f"  Characters: {len(text):,}")

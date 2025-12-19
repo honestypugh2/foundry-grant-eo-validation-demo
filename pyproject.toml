@@ -32,7 +32,6 @@ dependencies = [
     "fastapi>=0.121.2",
     "agent-framework>=1.0.0b251114",
     "azure-functions-durable>=1.4.0",
-    "azure-ai-formrecognizer>=3.3.3",
     "msgraph-sdk>=1.48.0",
     "nest-asyncio>=1.6.0",
     "azure-storage-queue>=12.14.1",

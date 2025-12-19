@@ -1,25 +1,25 @@
 {
   "name": "grant-compliance-frontend",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@azure/identity": "^4.0.0",
-    "@azure/storage-blob": "^12.17.0",
-    "@types/node": "^20.10.0",
-    "@types/react": "^18.2.45",
-    "@types/react-dom": "^18.2.18",
-    "axios": "^1.6.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
-    "recharts": "^2.10.3",
-    "typescript": "^5.3.3"
+    "@azure/identity": "^4.6.0",
+    "@azure/storage-blob": "^12.26.0",
+    "@types/node": "^20.19.27",
+    "@types/react": "^19.0.6",
+    "@types/react-dom": "^19.0.3",
+    "axios": "^1.7.9",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "react-router-dom": "^7.11.0",
+    "recharts": "^2.15.4",
+    "typescript": "^5.7.3"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.19",
     "vite": "^6.4.1"
   },
   "scripts": {
