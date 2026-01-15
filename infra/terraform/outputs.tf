@@ -31,6 +31,11 @@ output "ai_project_name" {
   value       = azapi_resource.ai_foundry_project.name
 }
 
+output "project_endpoint" {
+  description = "Endpoint for AI Foundry project (same as resource endpoint)"
+  value       = jsondecode(data.azapi_resource.ai_foundry_resource_data.output).properties.endpoint
+}
+
 output "document_intelligence_endpoint" {
   description = "Endpoint for Azure Document Intelligence"
   value       = azurerm_cognitive_account.document_intelligence.endpoint
@@ -161,6 +166,7 @@ output "env_file_content" {
     AZURE_OPENAI_API_VERSION=2024-10-01-preview
     AZURE_AI_FOUNDRY_RESOURCE_NAME=${azapi_resource.ai_foundry_resource.name}
     AZURE_AI_PROJECT_NAME=${azapi_resource.ai_foundry_project.name}
+    PROJECT_ENDPOINT=${jsondecode(data.azapi_resource.ai_foundry_resource_data.output).properties.endpoint}
     AZURE_AI_FOUNDRY_RESOURCE_ID=${azapi_resource.ai_foundry_resource.id}
     AZURE_AI_FOUNDRY_PROJECT_ID=${azapi_resource.ai_foundry_project.id}
     

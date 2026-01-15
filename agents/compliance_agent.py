@@ -8,7 +8,7 @@ using Azure AI Foundry and Azure AI Search for knowledge base retrieval.
 import os
 from typing import Annotated, Optional, Dict, Any
 from agent_framework import ChatAgent, CitationAnnotation, TextSpanRegion
-from agent_framework_azure_ai import AzureAIAgentClient
+from agent_framework.azure import AzureAIAgentClient
 from azure.identity.aio import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.aio import SearchClient

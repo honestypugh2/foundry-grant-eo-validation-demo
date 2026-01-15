@@ -8,7 +8,7 @@ import logging
 import asyncio
 from typing import Annotated, Dict, Any, List, Optional
 from agent_framework import ChatAgent
-from agent_framework_azure_ai import AzureAIAgentClient
+from agent_framework.azure import AzureAIAgentClient
 from azure.identity.aio import DefaultAzureCredential
 
 logger = logging.getLogger(__name__)

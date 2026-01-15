@@ -127,6 +127,45 @@ Currently, county departments submit grant proposals and related documents via e
 - Output evaluation and iterative refinement
 - Feedback loop for improved accuracy over time
 
+## Orchestrators
+
+This project includes **two orchestrator implementations** to coordinate the compliance validation workflow:
+
+### 1. **Original Orchestrator** ([agents/orchestrator.py](agents/orchestrator.py))
+- **Pattern**: Manual async coordination
+- **Structure**: Single class with async methods
+- **Best For**: Simple, straightforward workflows
+- **Usage**: Production-ready, battle-tested implementation
+
+### 2. **Sequential Workflow Orchestrator** ([agents/sequential_workflow_orchestrator.py](agents/sequential_workflow_orchestrator.py)) ✨ NEW
+- **Pattern**: Agent Framework Sequential Workflow
+- **Structure**: Separate Executor classes for each step
+- **Best For**: Complex, observable, extensible workflows
+- **Key Benefits**:
+  - 🎯 Clear separation of concerns (one executor = one responsibility)
+  - 🔧 Flexible pipeline configuration via edge connections
+  - 👀 Real-time event streaming for monitoring
+  - 🚨 Better error handling with executor-level events
+  - ♻️ Reusable components across workflows
+  - 📈 Scalable architecture for easy extension
+
+**Quick Comparison**:
+```python
+# Original Orchestrator
+from agents.orchestrator import AgentOrchestrator
+orchestrator = AgentOrchestrator(use_azure=True)
+results = orchestrator.process_grant_proposal("proposal.pdf")
+
+# Sequential Workflow Orchestrator
+from agents.sequential_workflow_orchestrator import SequentialWorkflowOrchestrator
+orchestrator = SequentialWorkflowOrchestrator(use_azure=True)
+results = orchestrator.process_grant_proposal("proposal.pdf")
+```
+
+📖 **See [docs/SequentialWorkflowOrchestrator.md](docs/SequentialWorkflowOrchestrator.md) for detailed documentation and comparison.**
+
+🔬 **Try the comparison example**: [examples/compare_orchestrators.py](examples/compare_orchestrators.py)
+
 ## Scoring System
 
 The system uses three complementary scores to evaluate grant proposals and guide decision-making:
@@ -696,6 +735,7 @@ foundry-grant-eo-validation-demo/
 ├── agents/                        # ⚠️ Note: Only compliance_agent.py and summarization_agent.py
 │   ├── __init__.py                #    use Azure AI Agent Framework. Others follow "agent" naming
 │   ├── orchestrator.py            #    convention but are traditional Python classes.
+│   ├── sequential_workflow_orchestrator.py # ✅ Agent Framework Sequential Workflow pattern
 │   ├── compliance_agent.py        # ✅ Azure AI Agent Framework - Compliance checking
 │   ├── document_ingestion_agent.py # Traditional class - Document processing
 │   ├── summarization_agent.py     # ✅ Azure AI Agent Framework - Summary generation

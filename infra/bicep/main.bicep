@@ -46,15 +46,18 @@ resource aiFoundryResource 'Microsoft.CognitiveServices/accounts@2025-06-01' = {
     type: 'SystemAssigned'
   }
   properties: {
-    // Required for Foundry resource to support projects
+    // Custom subdomain must match the resource name for new Foundry experience
+    customSubDomainName: '${abbrs.cognitiveServicesAccounts}${resourcePrefix}-${environmentName}'
+    // CRITICAL: This property is required for the new Foundry experience
     allowProjectManagement: true
-    // Custom subdomain is required for Foundry
-    customSubDomainName: '${resourcePrefix}-${environmentName}-${uniqueSuffix}'
     publicNetworkAccess: 'Enabled'
     networkAcls: {
       defaultAction: 'Allow'
+      virtualNetworkRules: []
+      ipRules: []
+      bypass: 'AzureServices'
     }
-    disableLocalAuth: false  // Ensure API key authentication is enabled
+    disableLocalAuth: false
   }
 }
 
@@ -101,8 +104,7 @@ resource openAIDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025
       name: openAIDeploymentName
       version: openAIModelVersion
     }
-    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
-    raiPolicyName: 'Microsoft.DefaultV2'  // System-managed policy
+    raiPolicyName: 'Microsoft.Default'
   }
 }
 
@@ -171,7 +173,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
     largeFileSharesState: 'Enabled'
-    publicNetworkAccess: 'Disabled'
+    publicNetworkAccess: 'Enabled'
     allowCrossTenantReplication: false
     defaultToOAuthAuthentication: false
     dnsEndpointType: 'Standard'
@@ -496,6 +498,32 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
 // Role Assignments (if principalId provided)
 // ============================================================================
 
+// Azure AI User role - Required for new Foundry experience
+var azureAIUserRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')
+
+resource aiUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+  scope: aiFoundryResource
+  name: guid(aiFoundryResource.id, principalId, azureAIUserRole)
+  properties: {
+    roleDefinitionId: azureAIUserRole
+    principalId: principalId
+    principalType: 'User'
+  }
+}
+
+// Azure AI Developer role - Required for new Foundry experience
+var azureAIDeveloperRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee')
+
+resource aiDeveloperRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+  scope: aiFoundryResource
+  name: guid(aiFoundryResource.id, principalId, azureAIDeveloperRole)
+  properties: {
+    roleDefinitionId: azureAIDeveloperRole
+    principalId: principalId
+    principalType: 'User'
+  }
+}
+
 // Cognitive Services OpenAI User role
 var cognitiveServicesOpenAIUserRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
 
@@ -509,14 +537,27 @@ resource openAIRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
-// Search Index Data Contributor role
+// Search Index Data Contributor role - Required for reading/writing index data
 var searchIndexDataContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
 
-resource searchRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+resource searchDataRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
   scope: searchService
   name: guid(searchService.id, principalId, searchIndexDataContributorRole)
   properties: {
     roleDefinitionId: searchIndexDataContributorRole
+    principalId: principalId
+    principalType: 'User'
+  }
+}
+
+// Search Service Contributor role - Required for creating/managing indexes
+var searchServiceContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
+
+resource searchServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
+  scope: searchService
+  name: guid(searchService.id, principalId, searchServiceContributorRole)
+  properties: {
+    roleDefinitionId: searchServiceContributorRole
     principalId: principalId
     principalType: 'User'
   }
@@ -574,6 +615,8 @@ output openAIEndpoint string = aiFoundryResource.properties.endpoint
 output openAIDeploymentName string = openAIDeployment.name
 output aiFoundryResourceName string = aiFoundryResource.name
 output aiProjectName string = aiFoundryProject.name
+// Use AI Foundry API endpoint for new Foundry experience
+output projectEndpoint string = aiFoundryProject.properties.endpoints['AI Foundry API']
 
 output documentIntelligenceEndpoint string = documentIntelligence.properties.endpoint
 

@@ -38,7 +38,7 @@ resource "azurerm_resource_group" "main" {
 
 # Foundry Resource using azapi provider for full control
 resource "azapi_resource" "ai_foundry_resource" {
-  type      = "Microsoft.CognitiveServices/accounts@2025-06-01"
+  type      = "Microsoft.CognitiveServices/accounts@2025-04-01-preview"
   name      = "cog-${var.resource_prefix}-${var.environment_name}"
   parent_id = azurerm_resource_group.main.id
   location  = azurerm_resource_group.main.location
@@ -52,15 +52,15 @@ resource "azapi_resource" "ai_foundry_resource" {
       type = "SystemAssigned"
     }
     properties = {
-      # Required for Foundry resource to support projects
+      # Required to work in AI Foundry and support projects
       allowProjectManagement = true
-      # Custom subdomain is required for Foundry
+      # Custom subdomain is required for Foundry - defines developer API endpoint subdomain
       customSubDomainName = "${var.resource_prefix}-${var.environment_name}-${local.unique_suffix}"
       publicNetworkAccess = "Enabled"
       networkAcls = {
         defaultAction = "Allow"
       }
-      disableLocalAuth = false # Ensure API key authentication is enabled
+      disableLocalAuth = false # Enable API key authentication
     }
   })
 
@@ -78,11 +78,13 @@ data "azapi_resource" "ai_foundry_resource_data" {
 }
 
 # ============================================================================
-# Azure AI Foundry Project
+# Azure AI Foundry Project (New Foundry Experience)
 # ============================================================================
+# Projects group inputs/outputs related to one use case, including files.
+# Projects may be granted individual RBAC permissions and identities.
 
 resource "azapi_resource" "ai_foundry_project" {
-  type      = "Microsoft.CognitiveServices/accounts/projects@2025-06-01"
+  type      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
   name      = "${var.resource_prefix}-project-${var.environment_name}"
   parent_id = azapi_resource.ai_foundry_resource.id
   location  = azurerm_resource_group.main.location
@@ -91,10 +93,7 @@ resource "azapi_resource" "ai_foundry_project" {
     identity = {
       type = "SystemAssigned"
     }
-    properties = {
-      displayName = "Grant EO Validation Project"
-      description = "AI Foundry project for grant executive order validation and compliance checking"
-    }
+    properties = {}
   })
 
   tags = jsonencode(local.common_tags)
@@ -109,7 +108,7 @@ resource "azapi_resource" "ai_foundry_project" {
 # ============================================================================
 
 resource "azapi_resource" "openai_deployment" {
-  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-06-01"
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2024-10-01"
   name      = var.openai_deployment_name
   parent_id = azapi_resource.ai_foundry_resource.id
 
@@ -203,7 +202,7 @@ resource "azurerm_storage_account" "main" {
   https_traffic_only_enabled       = true
   allow_nested_items_to_be_public  = false
   shared_access_key_enabled        = false
-  public_network_access_enabled    = false
+  public_network_access_enabled    = true
   cross_tenant_replication_enabled = false
 
   network_rules {
