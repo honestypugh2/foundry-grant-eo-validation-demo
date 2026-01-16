@@ -42,7 +42,6 @@ class AgentOrchestrator:
         # Initialize configuration from environment
         project_endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT", "")
         deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
-        search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
         search_index = os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX", "grant-compliance-index")
         
         # Initialize SummarizationAgent with Agent Framework
@@ -53,28 +52,15 @@ class AgentOrchestrator:
             api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
         )
         
-        if use_azure and search_endpoint:
-            # For Azure services with API keys (local development and most deployments)
-            self.compliance_agent = ComplianceAgent(
-                project_endpoint=project_endpoint,
-                model_deployment_name=deployment_name,
-                search_endpoint=search_endpoint,
-                search_index_name=search_index,
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "10000")),
-                use_managed_identity=use_managed_identity,
-                search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-            )
-        else:
-            # For local development without Azure Search, use environment variables with API keys
-            self.compliance_agent = ComplianceAgent(
-                project_endpoint=project_endpoint,
-                model_deployment_name=deployment_name,
-                search_endpoint=search_endpoint,
-                search_index_name=search_index,
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
-                use_managed_identity=False,
-                search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-            )
+        # ComplianceAgent now uses hosted Azure AI Search tool
+        # Requires AI_SEARCH_PROJECT_CONNECTION_ID to be configured in Azure AI Foundry project
+        self.compliance_agent = ComplianceAgent(
+            project_endpoint=project_endpoint,
+            model_deployment_name=deployment_name,
+            search_index_name=search_index,
+            search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),
+            search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
+        )
         
         self.risk_agent = RiskScoringAgent()
         self.email_agent = EmailTriggerAgent(use_graph_api=use_azure)

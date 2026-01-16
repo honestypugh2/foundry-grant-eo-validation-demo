@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { api, AzureServiceStatus } from '../services/api';
+import { api, AzureServiceStatus, OrchestratorConfig } from '../services/api';
 import { useWorkflow } from '../context/WorkflowContext';
 
 const Header: React.FC = () => {
   const { useAzure } = useWorkflow();
   const [azureStatus, setAzureStatus] = useState<AzureServiceStatus | null>(null);
+  const [orchestratorConfig, setOrchestratorConfig] = useState<OrchestratorConfig | null>(null);
 
   useEffect(() => {
+    // Always fetch orchestrator config
+    api.getOrchestratorConfig()
+      .then(setOrchestratorConfig)
+      .catch(console.error);
+    
     if (useAzure) {
       api.getAzureStatus()
         .then(setAzureStatus)
@@ -31,6 +37,29 @@ const Header: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Orchestrator type indicator */}
+          {orchestratorConfig && (
+            <div className="text-sm">
+              <div className={`flex items-center space-x-2 ${
+                orchestratorConfig.orchestrator_type === 'sequential' 
+                  ? 'text-purple-600' 
+                  : 'text-blue-600'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${
+                  orchestratorConfig.orchestrator_type === 'sequential'
+                    ? 'bg-purple-500'
+                    : 'bg-blue-500'
+                }`}></span>
+                <span title={`Features: ${Object.entries(orchestratorConfig.features)
+                  .filter(([_, v]) => v)
+                  .map(([k]) => k.replace(/_/g, ' '))
+                  .join(', ')}`}>
+                  {orchestratorConfig.description}
+                </span>
+              </div>
+            </div>
+          )}
+          
           {useAzure && azureStatus && (
             <div className="text-sm">
               {configuredCount === totalServices ? (

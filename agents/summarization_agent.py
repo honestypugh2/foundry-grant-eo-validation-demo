@@ -7,9 +7,8 @@ import os
 import logging
 import asyncio
 from typing import Annotated, Dict, Any, List, Optional
-from agent_framework import ChatAgent
-from agent_framework.azure import AzureAIAgentClient
-from azure.identity.aio import DefaultAzureCredential
+from agent_framework.azure import AzureAIProjectAgentProvider
+from azure.identity.aio import AzureCliCredential
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +39,9 @@ class SummarizationAgent:
         self.model_deployment_name = model_deployment_name
         self.use_managed_identity = use_managed_identity
         
-        # Agent will be created on first use and reused
-        self._agent = None
-        self._credential = None
-        
-        # Set up credentials
-        if use_managed_identity:
-            # Exclude EnvironmentCredential to avoid Conditional Access blocking
-            # Service principal credentials in .env may be blocked by CA policies or have invalid values
-            self.credential = DefaultAzureCredential(exclude_environment_credential=True)
-        else:
-            self.credential = None  # Will use API key in client
+        # NOTE: Credentials are created fresh in each async method to avoid
+        # pickle errors with asyncio.Task objects when workflow framework
+        # serializes executor state between steps.
         
         # Agent instructions
         self.instructions = """You are an expert grant proposal analyst specializing in document summarization.
@@ -108,38 +99,6 @@ Output should include:
         
         return "\n".join(info)
 
-    async def create_agent(self) -> ChatAgent:
-        """
-        Create and configure the summarization agent.
-        Agent is reused across multiple calls to avoid recreation/deletion.
-
-        Returns:
-            Configured ChatAgent instance
-        """
-        # Return cached agent if already created
-        if self._agent is not None:
-            return self._agent
-        
-        # Create chat client with credential
-        if self._credential is None:
-            self._credential = DefaultAzureCredential(exclude_environment_credential=True)
-        
-        chat_client = AzureAIAgentClient(
-            project_endpoint=self.project_endpoint,
-            model_deployment_name=self.model_deployment_name,
-            async_credential=self._credential,
-            agent_name="SummarizationAgent",
-        )
-
-        # Create agent with tools
-        self._agent = ChatAgent(
-            chat_client=chat_client,
-            instructions=self.instructions,
-            tools=[self.extract_document_info],
-        )
-
-        return self._agent
-    
     async def generate_summary(self, document_text: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a comprehensive summary of the grant proposal.
@@ -154,18 +113,26 @@ Output should include:
         logger.info("Generating document summary")
         
         try:
-            # Get or create the agent
-            agent = await self.create_agent()
-            
-            # Create thread for this analysis
-            thread = agent.get_new_thread()
-            
-            # Build metadata JSON for the tool
-            import json
-            metadata_json = json.dumps(metadata)
-            
-            # Build summarization prompt
-            prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
+            # Create credentials fresh to avoid pickle errors with asyncio.Task objects
+            # when workflow framework serializes executor state between steps
+            # Following official sample pattern:
+            # https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/agents/azure_ai/azure_ai_provider_methods.py
+            async with (
+                AzureCliCredential() as credential,
+                AzureAIProjectAgentProvider(credential=credential) as provider,
+            ):
+                agent = await provider.create_agent(
+                    name="SummarizationAgent",
+                    instructions=self.instructions,
+                    description="Summarization agent for grant proposals - generates concise summaries and extracts key clauses",
+                    tools=[self.extract_document_info],
+                )
+                # Build metadata JSON for the tool
+                import json
+                metadata_json = json.dumps(metadata)
+                
+                # Build summarization prompt
+                prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
 
 GRANT PROPOSAL TEXT:
 {document_text}
@@ -191,11 +158,11 @@ Focus especially on identifying clauses related to:
 Structure your response clearly with section headers.
 """
 
-            # Get summary from agent
-            response_text = ""
-            async for chunk in agent.run_stream(prompt, thread=thread):
-                if chunk.text:
-                    response_text += chunk.text
+                # Get summary from agent
+                response_text = ""
+                async for chunk in agent.run_stream(prompt):
+                    if chunk.text:
+                        response_text += chunk.text
             
             # Parse response into structured format
             summary_data = self._parse_summary_response(response_text)
@@ -330,10 +297,8 @@ Structure your response clearly with section headers.
     
     async def cleanup(self):
         """Clean up resources."""
-        # Agent cleanup is handled by the framework
-        # Close credential if needed
-        if self._credential is not None:
-            await self._credential.close()
+        # Provider and credentials are managed via async context manager in each method call
+        # No persistent resources to clean up
         logger.info("SummarizationAgent cleaned up")
 
 

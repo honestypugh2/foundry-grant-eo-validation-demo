@@ -143,7 +143,7 @@ const KnowledgeBasePage: React.FC = () => {
                 {selectedEO.replace(/_/g, ' ')}
               </h3>
               <div className="flex items-center gap-3">
-                {eoContent.type === 'text' && (
+                {eoContent.word_count && (
                   <span className="text-sm text-gray-500">
                     {eoContent.word_count} words
                   </span>
@@ -158,10 +158,10 @@ const KnowledgeBasePage: React.FC = () => {
               </div>
             </div>
 
-            {eoContent.type === 'text' ? (
-              <details className="cursor-pointer">
+            {eoContent.content ? (
+              <details className="cursor-pointer" open={eoContent.type === 'indexed'}>
                 <summary className="text-sm text-azure-600 hover:text-azure-700 font-medium mb-2">
-                  View content
+                  View content {eoContent.source === 'azure' && <span className="text-xs text-gray-400">(from Azure AI Search)</span>}
                 </summary>
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg max-h-96 overflow-y-auto">
                   <pre className="text-sm whitespace-pre-wrap text-gray-700">

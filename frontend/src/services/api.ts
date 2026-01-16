@@ -16,6 +16,16 @@ export interface AzureServiceStatus {
   ai_foundry: boolean;
 }
 
+export interface OrchestratorConfig {
+  orchestrator_type: 'sequential' | 'legacy';
+  description: string;
+  features: {
+    agent_framework_workflows: boolean;
+    azure_ai_search_hosted_tool: boolean;
+    streaming_support: boolean;
+  };
+}
+
 export interface ProcessDocumentRequest {
   send_email: boolean;
   use_azure: boolean;
@@ -25,6 +35,12 @@ export const api = {
   // Health check
   healthCheck: async () => {
     const response = await apiClient.get('/api/health');
+    return response.data;
+  },
+
+  // Get orchestrator configuration
+  getOrchestratorConfig: async (): Promise<OrchestratorConfig> => {
+    const response = await apiClient.get('/api/config/orchestrator');
     return response.data;
   },
 
