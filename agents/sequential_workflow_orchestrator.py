@@ -196,10 +196,20 @@ class ComplianceValidationExecutor(Executor):
             }
         )
         
+        # Calculate compliance_score based on status and findings
+        # compliance_score represents HOW COMPLIANT the proposal is (0-100)
+        # confidence_score represents AI's CERTAINTY about its analysis (0-100)
+        status = compliance_analysis['status'].lower().replace(' ', '_')
+        compliance_score = self._calculate_compliance_score_from_analysis(
+            status=status,
+            analysis_text=compliance_analysis['analysis'],
+            relevant_eos=compliance_analysis.get('relevant_executive_orders', [])
+        )
+        
         # Convert to expected format
         compliance_report = {
-            'compliance_score': compliance_analysis['confidence_score'],
-            'overall_status': compliance_analysis['status'].lower().replace(' ', '_'),
+            'compliance_score': compliance_score,
+            'overall_status': status,
             'analysis': compliance_analysis['analysis'],
             'confidence_score': compliance_analysis['confidence_score'],
             'violations': [],
@@ -222,6 +232,86 @@ class ComplianceValidationExecutor(Executor):
         
         # Forward to next executor
         await ctx.send_message(state)
+
+    def _calculate_compliance_score_from_analysis(
+        self,
+        status: str,
+        analysis_text: str,
+        relevant_eos: list
+    ) -> float:
+        """
+        Calculate compliance score based on analysis status and findings.
+        
+        This calculates HOW COMPLIANT the proposal is (0-100), which is different
+        from confidence_score (how certain the AI is about its analysis).
+        
+        Args:
+            status: Compliance status ('compliant', 'non_compliant', 'requires_review')
+            analysis_text: Full analysis text from the compliance agent
+            relevant_eos: List of relevant executive orders found
+            
+        Returns:
+            Compliance score from 0-100
+        """
+        
+        # Base score from status
+        if status == 'compliant':
+            base_score = 90.0
+        elif status == 'non_compliant':
+            base_score = 30.0
+        else:  # requires_review
+            base_score = 60.0
+        
+        text_lower = analysis_text.lower()
+        
+        # Adjust based on negative indicators in the analysis
+        negative_indicators = [
+            ('violation', -10),
+            ('non-compliant', -10),
+            ('concern', -5),
+            ('issue', -3),
+            ('risk', -3),
+            ('problem', -5),
+            ('fails to', -8),
+            ('does not comply', -10),
+            ('missing', -5),
+            ('lacks', -5),
+            ('dei', -5),  # DEI-related concerns
+            ('diversity', -3),
+            ('gender ideology', -5),
+        ]
+        
+        penalty = 0
+        for indicator, weight in negative_indicators:
+            # Count occurrences but cap impact
+            count = min(text_lower.count(indicator), 3)
+            penalty += count * weight
+        
+        # Adjust based on positive indicators
+        positive_indicators = [
+            ('compliant', 5),
+            ('meets requirements', 8),
+            ('aligns with', 5),
+            ('satisfies', 5),
+            ('complies with', 8),
+            ('no concerns', 10),
+            ('no issues', 8),
+        ]
+        
+        bonus = 0
+        for indicator, weight in positive_indicators:
+            if indicator in text_lower:
+                bonus += weight
+        
+        # Bonus for having relevant executive orders (shows thorough analysis)
+        if len(relevant_eos) >= 2:
+            bonus += 5
+        elif len(relevant_eos) == 0:
+            penalty -= 10  # No EOs found is concerning
+        
+        # Calculate final score with bounds
+        final_score = base_score + bonus + penalty
+        return max(0.0, min(100.0, final_score))
 
 
 class RiskScoringExecutor(Executor):

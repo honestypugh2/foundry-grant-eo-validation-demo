@@ -60,6 +60,15 @@ AZURE_SEARCH_INDEX_NAME=grant-compliance-index
 # AI Foundry (optional)
 AZURE_AI_FOUNDRY_ENDPOINT=https://your-foundry.services.ai.azure.com/api/projects/yourProject
 AZURE_AI_FOUNDRY_API_KEY=your_api_key
+
+# Agent Service Selection (optional)
+# agent-framework = Use Agent Framework SDK (default)
+# foundry = Use Azure AI Foundry Agent Service
+AGENT_SERVICE=agent-framework
+
+# Foundry Agent Persistence (only when AGENT_SERVICE=foundry)
+# Set to "true" to keep agents visible in Foundry portal
+PERSIST_FOUNDRY_AGENTS=false
 ```
 
 ### 4. Start the Server
@@ -126,8 +135,12 @@ backend/
 - **python-dotenv** - Environment variables
 - **Pydantic** - Data validation
 
-The backend also uses the agent orchestrator from the parent project:
-- `agents/orchestrator.py` - Multi-agent workflow
+The backend also uses the agent orchestrators from the parent project:
+- `agents/orchestrator.py` - Original multi-agent workflow
+- `agents/sequential_workflow_orchestrator.py` - Agent Framework Sequential Workflow
+- `agents/sequential_workflow_orchestrator_foundry.py` - Azure AI Foundry Agent Service
+
+Select the orchestrator via `AGENT_SERVICE` environment variable.
 
 ## Development
 

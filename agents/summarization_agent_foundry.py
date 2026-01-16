@@ -161,12 +161,16 @@ Structure your response clearly with section headers.
                         logger.info("Conversation deleted")
                 
                 finally:
-                    # Clean up agent
-                    await project_client.agents.delete_version(
-                        agent_name=agent.name,
-                        agent_version=agent.version
-                    )
-                    logger.info("Agent deleted")
+                    # Clean up agent (unless persistence is enabled)
+                    persist_agents = os.getenv("PERSIST_FOUNDRY_AGENTS", "false").lower() == "true"
+                    if not persist_agents:
+                        await project_client.agents.delete_version(
+                            agent_name=agent.name,
+                            agent_version=agent.version
+                        )
+                        logger.info("Agent deleted")
+                    else:
+                        logger.info(f"Agent persisted in Foundry portal: {agent.name} (version: {agent.version})")
             
             # Parse response into structured format
             summary_data = self._parse_summary_response(response_text)

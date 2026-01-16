@@ -233,7 +233,10 @@ Output Format:
             - 50-69: Significant uncertainty, prioritize manual review
             - <50: Unreliable, require immediate expert review
             
-            This score is also used as the compliance_score in the risk calculation.
+        NOTE: This is DIFFERENT from compliance_score, which measures HOW COMPLIANT
+        the proposal is. The compliance_score is calculated by the orchestrators
+        using _calculate_compliance_score_from_analysis() based on the status
+        and analysis findings returned by this agent.
             
         See docs/SCORING_SYSTEM.md for complete scoring documentation.
         """
@@ -288,6 +291,9 @@ Note: Document metadata has already been extracted using Azure Document Intellig
                     response_text += chunk.text
 
         # Parse response into structured format (outside the context manager)
+        # Note: compliance_score is calculated by the orchestrators using
+        # _calculate_compliance_score_from_analysis() based on status and analysis findings.
+        # This agent returns confidence_score (AI certainty) and status (compliance determination).
         result = {
             "analysis": response_text,
             "confidence_score": self._extract_confidence_score(response_text),
@@ -320,12 +326,25 @@ Note: Document metadata has already been extracted using Azure Document Intellig
         
         See docs/SCORING_SYSTEM.md for complete documentation.
         """
-        # Simple regex-based extraction
         import re
-
+        
+        # Try multiple patterns to handle different AI output formats
+        # Pattern 1: "Confidence Score: 85" (inline)
         match = re.search(r"confidence\s*score[:\s]*(\d+)", text, re.IGNORECASE)
         if match:
             return int(match.group(1))
+        
+        # Pattern 2: Markdown format with newline and bold
+        # "### Confidence Score:\n- **85**" or "Confidence Score:\n- **85**"
+        match = re.search(r"confidence\s*score[:\s]*\n[-*\s]*\**(\d+)\**", text, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        
+        # Pattern 3: Just look for a number after "confidence score" within next 50 chars
+        match = re.search(r"confidence\s*score[:\s\n\-*]*(\d+)", text, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+        
         return 70  # Default confidence if not found
 
     def _extract_status(self, text: str) -> str:

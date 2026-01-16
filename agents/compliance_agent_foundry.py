@@ -246,31 +246,57 @@ Render citations as: `[message_idx:search_idx†source]`
                     logger.info("Conversation deleted")
             
             finally:
-                # Clean up agent
-                await project_client.agents.delete_version(
-                    agent_name=agent.name,
-                    agent_version=agent.version
-                )
-                logger.info("Agent deleted")
+                # Clean up agent (unless persistence is enabled)
+                persist_agents = os.getenv("PERSIST_FOUNDRY_AGENTS", "false").lower() == "true"
+                if not persist_agents:
+                    await project_client.agents.delete_version(
+                        agent_name=agent.name,
+                        agent_version=agent.version
+                    )
+                    logger.info("Agent deleted")
+                else:
+                    logger.info(f"Agent persisted in Foundry portal: {agent.name} (version: {agent.version})")
 
         # Parse response into structured format
+        # Note: compliance_score is calculated by the orchestrators using
+        # _calculate_compliance_score_from_analysis() based on status and analysis findings.
+        # This agent returns confidence_score (AI certainty) and status (compliance determination).
         result = {
             "analysis": response_text,
             "confidence_score": self._extract_confidence_score(response_text),
             "status": self._extract_status(response_text),
             "relevant_executive_orders": self._extract_relevant_executive_orders(response_text),
             "citations": citations,
-            "compliance_score": self._extract_confidence_score(response_text),  # Alias for risk scoring
             "overall_status": self._extract_status(response_text).lower().replace(' ', '_'),
         }
 
         return result
 
     def _extract_confidence_score(self, text: str) -> int:
-        """Extract confidence score from analysis text."""
+        """
+        Extract confidence score from analysis text.
+        
+        Handles multiple AI output formats:
+        - Inline: "Confidence Score: 85"
+        - Markdown: "### Confidence Score:\n- **85**"
+        """
+        # Try multiple patterns to handle different AI output formats
+        # Pattern 1: "Confidence Score: 85" (inline)
         match = re.search(r"confidence\s*score[:\s]*(\d+)", text, re.IGNORECASE)
         if match:
             return min(100, max(0, int(match.group(1))))
+        
+        # Pattern 2: Markdown format with newline and bold
+        # "### Confidence Score:\n- **85**" or "Confidence Score:\n- **85**"
+        match = re.search(r"confidence\s*score[:\s]*\n[-*\s]*\**(\d+)\**", text, re.IGNORECASE)
+        if match:
+            return min(100, max(0, int(match.group(1))))
+        
+        # Pattern 3: Just look for a number after "confidence score" within next chars
+        match = re.search(r"confidence\s*score[:\s\n\-*]*(\d+)", text, re.IGNORECASE)
+        if match:
+            return min(100, max(0, int(match.group(1))))
+        
         return 70  # Default confidence if not found
 
     def _extract_status(self, text: str) -> str:

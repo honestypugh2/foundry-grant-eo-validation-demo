@@ -59,7 +59,7 @@ class EmailTriggerAgent:
         
         Args:
             risk_report: Results from RiskScoringAgent
-            compliance_report: Results from ComplianceValidatorAgent
+            compliance_report: Results from ComplianceAgent or ComplianceAgentFoundry
             summary: Summary from SummarizationAgent
             metadata: Document metadata
             
@@ -70,7 +70,8 @@ class EmailTriggerAgent:
         
         risk_level = risk_report['risk_level']
         risk_score = risk_report['overall_score']
-        filename = metadata.get('filename', 'Unknown Document')
+        # Check both 'file_name' and 'filename' for compatibility
+        filename = metadata.get('file_name') or metadata.get('filename', 'Unknown Document')
         
         # Determine priority
         priority = self._determine_priority(risk_level)
@@ -189,7 +190,10 @@ class EmailTriggerAgent:
         """Generate HTML email body."""
         risk_level = risk_report['risk_level']
         risk_score = risk_report['overall_score']
-        confidence = risk_report['confidence']
+        compliance_score = compliance_report.get('compliance_score', 0)
+        # Use the AI's confidence in its analysis (from compliance agent)
+        # NOT the risk-derived confidence which correlates with overall_score
+        confidence = compliance_report.get('confidence_score', risk_report.get('confidence', 70))
         
         # Risk level color
         risk_color = {
@@ -229,7 +233,8 @@ class EmailTriggerAgent:
         <h2>Grant Proposal Compliance Review Required</h2>
         <p><strong>Document:</strong> {filename}</p>
         <p><strong>Risk Level:</strong> <span class="risk-badge">{risk_level.upper()}</span></p>
-        <p><strong>Risk Score:</strong> {risk_score:.1f}% (Confidence: {confidence:.1f}%)</p>
+        <p><strong>Risk Score:</strong> {risk_score:.1f}%</p>
+        <p><strong>Compliance Score:</strong> {compliance_score:.1f}% (AI Confidence: {confidence:.1f}%)</p>
     </div>
     
     <div class="section">
@@ -354,6 +359,9 @@ class EmailTriggerAgent:
         """Generate plain text email body."""
         risk_level = risk_report['risk_level']
         risk_score = risk_report['overall_score']
+        compliance_score = compliance_report.get('compliance_score', 0)
+        # Use AI's confidence from compliance analysis, not risk-derived confidence
+        confidence = compliance_report.get('confidence_score', risk_report.get('confidence', 70))
         
         text = f"""
 GRANT PROPOSAL COMPLIANCE REVIEW REQUIRED
@@ -361,7 +369,8 @@ GRANT PROPOSAL COMPLIANCE REVIEW REQUIRED
 Document: {filename}
 Risk Level: {risk_level.upper()}
 Risk Score: {risk_score:.1f}%
-Confidence: {risk_report['confidence']:.1f}%
+Compliance Score: {compliance_score:.1f}%
+AI Confidence: {confidence:.1f}%
 
 EXECUTIVE SUMMARY:
 {summary.get('executive_summary', 'No summary available')[:500]}...

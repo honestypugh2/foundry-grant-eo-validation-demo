@@ -83,6 +83,27 @@ Orchestrator Agent (Coordinator)
     └── Email Trigger Agent (Notification Management)
 ```
 
+### SDK Options
+
+The system supports **two SDK implementations** for AI agents:
+
+| SDK | Module | Best For |
+|-----|--------|----------|
+| **Agent Framework** | `compliance_agent.py`, `summarization_agent.py` | Local development, Agent Framework ecosystem |
+| **Azure AI Projects** (Foundry) | `compliance_agent_foundry.py`, `summarization_agent_foundry.py` | Azure AI Foundry portal integration, debugging |
+
+**Select via environment variable:**
+```bash
+export AGENT_SERVICE=agent-framework  # Default - uses Agent Framework SDK
+export AGENT_SERVICE=foundry          # Uses azure-ai-projects SDK
+```
+
+**Foundry Agent Persistence:**
+```bash
+# Keep agents visible in Azure AI Foundry portal after workflow
+export PERSIST_FOUNDRY_AGENTS=true
+```
+
 ### Agent Responsibilities
 
 #### 1. Orchestrator Agent
@@ -126,7 +147,8 @@ Orchestrator Agent (Coordinator)
 - Search knowledge base for relevant executive orders (Azure AI Search)
 - Analyze proposal against EO requirements
 - Generate structured citations with annotated regions
-- Calculate confidence score
+- Calculate confidence score (AI's certainty in analysis)
+- Determine compliance status (compliant/requires_review/non_compliant)
 - Identify violations and warnings
 
 **Technology**: Azure AI Search, Azure OpenAI GPT-4, Citation Framework
@@ -134,8 +156,8 @@ Orchestrator Agent (Coordinator)
 **Output Structure**:
 ```python
 {
-    "compliance_score": 85.0,
-    "confidence_score": 90.0,
+    "compliance_score": 85.0,      # Calculated from status + analysis findings
+    "confidence_score": 90.0,      # AI's certainty about its analysis
     "overall_status": "COMPLIANT",
     "violations": [],
     "warnings": [],
@@ -152,6 +174,10 @@ Orchestrator Agent (Coordinator)
 }
 ```
 
+**Score Distinction**:
+- `compliance_score`: HOW COMPLIANT the proposal is (0-100)
+- `confidence_score`: AI's CERTAINTY about its analysis (0-100)
+
 #### 5. Risk Scoring Agent
 **Purpose**: Calculates composite risk scores for decision-making
 
@@ -163,6 +189,14 @@ Orchestrator Agent (Coordinator)
 - Include relevant executive orders in risk report
 - Generate actionable recommendations
 - Determine if attorney notification is required
+- Calculate assessment certainty (how definitive the risk classification is)
+
+**Key Metrics**:
+- `overall_score` (0-100): Composite risk score
+- `assessment_certainty` (0-100): How definitive the risk classification is
+  - High for extreme scores (near 0 or 100) - clearly good or bad
+  - Low for middle scores (near 50) - ambiguous classification
+  - **Note**: This is different from `confidence_score` (AI's certainty about its analysis)
 
 **Formula**: `Risk = (Compliance × 60%) + (Quality × 25%) + (Completeness × 15%)`
 

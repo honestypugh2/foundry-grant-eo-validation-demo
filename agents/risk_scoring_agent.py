@@ -44,7 +44,7 @@ class RiskScoringAgent:
         
         Components:
         1. Compliance Risk (60% weight):
-           - Based on compliance_score from ComplianceValidatorAgent
+           - Based on compliance_score from ComplianceAgent/ComplianceAgentFoundry
            - Primary factor: legal/regulatory alignment
            - Threshold: <70% triggers HIGH risk
         
@@ -68,7 +68,7 @@ class RiskScoringAgent:
         - Lower scores require stronger justification to approve
         
         Args:
-            compliance_report: Results from ComplianceValidatorAgent
+            compliance_report: Results from ComplianceAgent or ComplianceAgentFoundry
             summary: Summary from SummarizationAgent
             metadata: Document metadata
             
@@ -142,7 +142,7 @@ class RiskScoringAgent:
             risk_report = {
                 'overall_score': round(overall_score, 2),
                 'risk_level': risk_level,
-                'confidence': self._calculate_confidence(overall_score),
+                'assessment_certainty': self._calculate_assessment_certainty(overall_score),
                 'requires_notification': requires_notification,
                 'risk_breakdown': {
                     'compliance_risk': compliance_risk,
@@ -173,9 +173,21 @@ class RiskScoringAgent:
             raise
     
     def _calculate_compliance_risk(self, compliance_report: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate risk based on compliance validation results."""
+        """
+        Calculate risk based on compliance validation results.
+        
+        Two key scores from compliance_report:
+        - compliance_score (0-100): HOW COMPLIANT the proposal is
+          * Based on analysis status and findings
+          * 90+ = compliant, 60-89 = needs review, <60 = non-compliant
+          
+        - confidence_score (0-100): AI's CERTAINTY about its analysis
+          * 90+ = highly reliable, 70-89 = reliable, <70 = uncertain
+          
+        The risk calculation uses compliance_score weighted by confidence_score.
+        """
         compliance_score = compliance_report.get('compliance_score', 0)
-        confidence_score = compliance_report.get('confidence_score', 70)  # From ComplianceAgent
+        confidence_score = compliance_report.get('confidence_score', 70)
         violations = compliance_report.get('violations', [])
         warnings = compliance_report.get('warnings', [])
         
@@ -340,13 +352,20 @@ class RiskScoringAgent:
         else:
             return 'high'
     
-    def _calculate_confidence(self, score: float) -> float:
-        """Calculate confidence level in the risk assessment."""
-        # Confidence is higher when score is at extremes
+    def _calculate_assessment_certainty(self, score: float) -> float:
+        """
+        Calculate certainty level in the risk assessment.
+        
+        This is different from confidence_score (AI's certainty about its analysis).
+        Assessment certainty measures how definitive the risk classification is:
+        - Extreme scores (near 0 or 100) = high certainty (clearly good/bad)
+        - Middle scores (near 50) = low certainty (ambiguous classification)
+        """
+        # Certainty is higher when score is at extremes
         # and lower when score is in the middle
         distance_from_50 = abs(score - 50)
-        confidence = 50 + (distance_from_50)
-        return round(min(100, confidence), 2)
+        certainty = 50 + (distance_from_50)
+        return round(min(100, certainty), 2)
     
     def _generate_risk_recommendations(
         self,

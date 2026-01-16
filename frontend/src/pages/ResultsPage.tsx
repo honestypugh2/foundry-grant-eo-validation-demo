@@ -79,7 +79,7 @@ const ResultsPage: React.FC = () => {
         {activeTab === 'compliance' && (
           <ComplianceTab compliance_report={compliance_report} />
         )}
-        {activeTab === 'risk' && <RiskTab risk_report={risk_report} />}
+        {activeTab === 'risk' && <RiskTab risk_report={risk_report} compliance_report={compliance_report} />}
         {activeTab === 'email' && <EmailTab results={results} />}
       </div>
     </div>
@@ -123,11 +123,11 @@ const OverviewTab: React.FC<any> = ({
         <h3 className="text-md font-semibold mb-3 text-blue-900">📊 Understanding Your Scores</h3>
         <div className="space-y-2 text-sm text-blue-800">
           <div>
-            <strong>Confidence Score ({risk_report?.confidence?.toFixed(1) || '0'}%):</strong> Measures how certain the AI is about its analysis. 
+            <strong>Confidence Score ({compliance_report?.confidence_score?.toFixed(1) || '0'}%):</strong> Measures how certain the AI is about its analysis. 
             <span className="italic">
-              {(risk_report?.confidence || 0) >= 90 ? ' (Very reliable)' : 
-               (risk_report?.confidence || 0) >= 70 ? ' (Reliable)' : 
-               (risk_report?.confidence || 0) >= 50 ? ' (Manual review recommended)' : 
+              {(compliance_report?.confidence_score || 0) >= 90 ? ' (Very reliable)' : 
+               (compliance_report?.confidence_score || 0) >= 70 ? ' (Reliable)' : 
+               (compliance_report?.confidence_score || 0) >= 50 ? ' (Manual review recommended)' : 
                ' (Expert review required)'}
             </span>
           </div>
@@ -168,8 +168,8 @@ const OverviewTab: React.FC<any> = ({
                 value={risk_report?.risk_level?.toUpperCase()}
               />
               <InfoRow
-                label="Confidence"
-                value={`${risk_report?.confidence?.toFixed(1) || '0'}%`}
+                label="Assessment Certainty"
+                value={`${(risk_report?.assessment_certainty ?? risk_report?.confidence)?.toFixed(1) || '0'}%`}
               />
             </div>
 
@@ -217,6 +217,11 @@ const SummaryTab: React.FC<any> = ({ summary }) => {
     ? summary 
     : summary?.executive_summary || summary?.summary || 'No summary available';
   
+  // Get the full detailed analysis (complete AI output)
+  const detailedAnalysis = typeof summary === 'string'
+    ? null
+    : summary?.detailed_analysis || null;
+  
   const keyClauses = Array.isArray(summary?.key_clauses) 
     ? summary.key_clauses 
     : [];
@@ -238,11 +243,28 @@ const SummaryTab: React.FC<any> = ({ summary }) => {
         </div>
       </div>
 
+      {/* Full Detailed Analysis - shows complete AI output */}
+      {detailedAnalysis && detailedAnalysis !== executiveSummary && (
+        <div className="mb-8">
+          <h3 className="text-lg font-semibold mb-3">📄 Full Analysis</h3>
+          <details className="cursor-pointer" open>
+            <summary className="text-sm text-azure-600 hover:text-azure-700 font-medium mb-3">
+              View complete summarization output
+            </summary>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 max-h-[600px] overflow-y-auto">
+              <div className="text-gray-700 leading-relaxed whitespace-pre-wrap font-mono text-sm">
+                {detailedAnalysis}
+              </div>
+            </div>
+          </details>
+        </div>
+      )}
+
       <div className="border-t pt-6 mb-8">
         <h3 className="text-lg font-semibold mb-4">Key Clauses & Requirements</h3>
         {keyClauses.length > 0 ? (
           <div className="space-y-4">
-            {keyClauses.slice(0, 5).map((clause: string, i: number) => (
+            {keyClauses.map((clause: string, i: number) => (
               <div key={i} className="p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm font-medium text-gray-800 mb-1">
                   Clause {i + 1}
@@ -399,23 +421,18 @@ const ComplianceTab: React.FC<any> = ({ compliance_report }) => {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
                       <h4 className="font-bold text-gray-900 text-base">
-                        {eo.name || `Executive Order ${eo.number}`}
+                        {eo.title || eo.name || `Executive Order ${eo.eo_number || eo.number}`}
                       </h4>
-                      {eo.title && eo.title !== eo.name && (
-                        <p className="text-sm text-gray-700 mt-1 font-medium">
-                          {eo.title}
-                        </p>
-                      )}
                     </div>
                     <div className="ml-4 flex-shrink-0">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        Relevance: {eo.relevance?.toFixed(1) || 'N/A'}%
+                        EO {eo.eo_number || eo.number || 'N/A'}
                       </span>
                     </div>
                   </div>
-                  {eo.number && (
+                  {eo.source && (
                     <p className="text-xs text-gray-600 mb-2">
-                      EO Number: {eo.number}
+                      Source: {eo.source.replace(/_/g, ' ')}
                     </p>
                   )}
                   {eo.key_requirements?.length > 0 && (
@@ -470,7 +487,17 @@ const ComplianceTab: React.FC<any> = ({ compliance_report }) => {
 };
 
 // Risk Tab Component
-const RiskTab: React.FC<any> = ({ risk_report }) => {
+const RiskTab: React.FC<any> = ({ risk_report, compliance_report }) => {
+  // Extract risk breakdown scores
+  const riskBreakdown = risk_report?.risk_breakdown || {};
+  const complianceRiskWeighted = riskBreakdown.compliance_risk?.score ?? 0;
+  const qualityRisk = riskBreakdown.quality_risk?.score ?? 0;
+  const completenessRisk = riskBreakdown.completeness_risk?.score ?? 0;
+  
+  // Get raw compliance score and confidence for transparency
+  const rawComplianceScore = compliance_report?.compliance_score ?? 0;
+  const aiConfidence = compliance_report?.confidence_score ?? 70;
+
   return (
     <div className="p-6">
       <h2 className="text-xl font-semibold mb-6">Risk Assessment</h2>
@@ -482,13 +509,47 @@ const RiskTab: React.FC<any> = ({ risk_report }) => {
           subtitle={risk_report?.risk_level?.toUpperCase()}
         />
         <MetricCard
-          label="Confidence"
-          value={`${risk_report?.confidence?.toFixed(1) || '0'}%`}
+          label="Assessment Certainty"
+          value={`${(risk_report?.assessment_certainty ?? risk_report?.confidence)?.toFixed(1) || '0'}%`}
         />
         <MetricCard
           label="Notification Required"
           value={risk_report?.requires_notification ? 'Yes' : 'No'}
         />
+      </div>
+
+      {/* Risk Breakdown by Component */}
+      <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <h3 className="text-md font-semibold mb-4 text-gray-800">📊 Risk Score Breakdown</h3>
+        <p className="text-xs text-gray-600 mb-4">
+          Formula: Risk = (Confidence-Weighted Compliance × 60%) + (Quality × 25%) + (Completeness × 15%)
+        </p>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 mb-1">Confidence-Weighted Compliance (60%)</p>
+            <p className="text-xl font-bold text-gray-800">{complianceRiskWeighted.toFixed(1)}%</p>
+            <p className="text-xs text-gray-500 mt-1">= {rawComplianceScore.toFixed(0)}% × {aiConfidence.toFixed(0)}% confidence</p>
+          </div>
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 mb-1">Quality (25%)</p>
+            <p className="text-xl font-bold text-gray-800">{qualityRisk.toFixed(1)}%</p>
+            <p className="text-xs text-gray-500 mt-1">Document structure & clarity</p>
+          </div>
+          <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
+            <p className="text-sm text-gray-600 mb-1">Completeness (15%)</p>
+            <p className="text-xl font-bold text-gray-800">{completenessRisk.toFixed(1)}%</p>
+            <p className="text-xs text-gray-500 mt-1">Required sections present</p>
+          </div>
+        </div>
+        
+        {/* Raw vs Weighted Compliance Explanation */}
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-800">
+            <strong>💡 Note:</strong> The Compliance Score from the Compliance tab ({rawComplianceScore.toFixed(1)}%) 
+            is multiplied by AI Confidence ({aiConfidence.toFixed(1)}%) to produce the risk-weighted value ({complianceRiskWeighted.toFixed(1)}%). 
+            Lower AI confidence reduces the weighted score to account for analysis uncertainty.
+          </p>
+        </div>
       </div>
 
       {risk_report?.risk_factors?.length > 0 && (
@@ -562,23 +623,18 @@ const RiskTab: React.FC<any> = ({ risk_report }) => {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <h4 className="font-bold text-gray-900 text-base">
-                      {eo.name || `Executive Order ${eo.number}`}
+                      {eo.title || eo.name || `Executive Order ${eo.eo_number || eo.number}`}
                     </h4>
-                    {eo.title && eo.title !== eo.name && (
-                      <p className="text-sm text-gray-700 mt-1 font-medium">
-                        {eo.title}
-                      </p>
-                    )}
                   </div>
                   <div className="ml-4 flex-shrink-0">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Relevance: {eo.relevance?.toFixed(1) || 'N/A'}%
+                      EO {eo.eo_number || eo.number || 'N/A'}
                     </span>
                   </div>
                 </div>
-                {eo.number && (
+                {eo.source && (
                   <p className="text-xs text-gray-600 mb-2">
-                    EO Number: {eo.number}
+                    Source: {eo.source.replace(/_/g, ' ')}
                   </p>
                 )}
                 {eo.key_requirements?.length > 0 && (

@@ -228,10 +228,15 @@ Provide Executive Summary, Key Objectives, Budget Highlights, Timeline, Key Topi
                         await openai_client.conversations.delete(conversation_id=summary_conv.id)
                         
                 finally:
-                    await project_client.agents.delete_version(
-                        agent_name=summary_agent.name,
-                        agent_version=summary_agent.version
-                    )
+                    # Clean up agent (unless persistence is enabled)
+                    persist_agents = os.getenv("PERSIST_FOUNDRY_AGENTS", "false").lower() == "true"
+                    if not persist_agents:
+                        await project_client.agents.delete_version(
+                            agent_name=summary_agent.name,
+                            agent_version=summary_agent.version
+                        )
+                    else:
+                        logger.info(f"Agent persisted: {summary_agent.name} (version: {summary_agent.version})")
                 
                 # Step 3: Compliance Validation using Foundry Agent with Azure AI Search
                 logger.info("Step 3: Compliance Validation")
@@ -293,10 +298,15 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
                         await openai_client.conversations.delete(conversation_id=compliance_conv.id)
                         
                 finally:
-                    await project_client.agents.delete_version(
-                        agent_name=compliance_agent.name,
-                        agent_version=compliance_agent.version
-                    )
+                    # Clean up agent (unless persistence is enabled)
+                    persist_agents = os.getenv("PERSIST_FOUNDRY_AGENTS", "false").lower() == "true"
+                    if not persist_agents:
+                        await project_client.agents.delete_version(
+                            agent_name=compliance_agent.name,
+                            agent_version=compliance_agent.version
+                        )
+                    else:
+                        logger.info(f"Agent persisted: {compliance_agent.name} (version: {compliance_agent.version})")
             
             # Step 4: Risk Scoring (local - no AI needed)
             logger.info("Step 4: Risk Scoring")
@@ -395,7 +405,7 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
         """Parse compliance response into structured format."""
         import re
         
-        # Extract confidence score
+        # Extract confidence score (AI's certainty about its analysis)
         match = re.search(r"confidence\s*score[:\s]*(\d+)", text, re.IGNORECASE)
         confidence_score = min(100, max(0, int(match.group(1)))) if match else 70
         
@@ -421,8 +431,17 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
                 'source': 'azure_ai_search'
             })
         
+        # Calculate compliance_score based on status and analysis findings
+        # compliance_score = HOW COMPLIANT the proposal is (0-100)
+        # confidence_score = AI's CERTAINTY about its analysis (0-100)
+        compliance_score = self._calculate_compliance_score_from_analysis(
+            status=status,
+            analysis_text=text,
+            relevant_eos=executive_orders
+        )
+        
         return {
-            'compliance_score': confidence_score,
+            'compliance_score': compliance_score,
             'overall_status': status,
             'analysis': text,
             'confidence_score': confidence_score,
@@ -442,6 +461,86 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
         ]
         text_lower = text.lower()
         return [kw for kw in keywords if kw in text_lower][:10]
+
+    def _calculate_compliance_score_from_analysis(
+        self,
+        status: str,
+        analysis_text: str,
+        relevant_eos: list
+    ) -> float:
+        """
+        Calculate compliance score based on analysis status and findings.
+        
+        This calculates HOW COMPLIANT the proposal is (0-100), which is different
+        from confidence_score (how certain the AI is about its analysis).
+        
+        Args:
+            status: Compliance status ('compliant', 'non_compliant', 'requires_review')
+            analysis_text: Full analysis text from the compliance agent
+            relevant_eos: List of relevant executive orders found
+            
+        Returns:
+            Compliance score from 0-100
+        """
+        
+        # Base score from status
+        if status == 'compliant':
+            base_score = 90.0
+        elif status == 'non_compliant':
+            base_score = 30.0
+        else:  # requires_review
+            base_score = 60.0
+        
+        text_lower = analysis_text.lower()
+        
+        # Adjust based on negative indicators in the analysis
+        negative_indicators = [
+            ('violation', -10),
+            ('non-compliant', -10),
+            ('concern', -5),
+            ('issue', -3),
+            ('risk', -3),
+            ('problem', -5),
+            ('fails to', -8),
+            ('does not comply', -10),
+            ('missing', -5),
+            ('lacks', -5),
+            ('dei', -5),  # DEI-related concerns
+            ('diversity', -3),
+            ('gender ideology', -5),
+        ]
+        
+        penalty = 0
+        for indicator, weight in negative_indicators:
+            # Count occurrences but cap impact
+            count = min(text_lower.count(indicator), 3)
+            penalty += count * weight
+        
+        # Adjust based on positive indicators
+        positive_indicators = [
+            ('compliant', 5),
+            ('meets requirements', 8),
+            ('aligns with', 5),
+            ('satisfies', 5),
+            ('complies with', 8),
+            ('no concerns', 10),
+            ('no issues', 8),
+        ]
+        
+        bonus = 0
+        for indicator, weight in positive_indicators:
+            if indicator in text_lower:
+                bonus += weight
+        
+        # Bonus for having relevant executive orders (shows thorough analysis)
+        if len(relevant_eos) >= 2:
+            bonus += 5
+        elif len(relevant_eos) == 0:
+            penalty -= 10  # No EOs found is concerning
+        
+        # Calculate final score with bounds
+        final_score = base_score + bonus + penalty
+        return max(0.0, min(100.0, final_score))
 
     def _determine_overall_status(
         self,

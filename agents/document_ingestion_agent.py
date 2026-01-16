@@ -123,29 +123,44 @@ class DocumentIngestionAgent:
         try:
             from azure.ai.documentintelligence import DocumentIntelligenceClient
             from azure.core.credentials import AzureKeyCredential
-            from azure.identity import DefaultAzureCredential
+            from azure.identity import AzureCliCredential, ManagedIdentityCredential
             
             if not self.azure_endpoint:
                 raise ValueError("Azure Document Intelligence endpoint is required")
             
-            # Use managed identity or API key authentication
-            if self.use_managed_identity:
-                logger.info("Authenticating with managed identity")
-                # Exclude EnvironmentCredential to avoid Conditional Access blocking
-                # Service principal credentials in .env are blocked by CA policies
-                credential = DefaultAzureCredential(exclude_environment_credential=True)
-                client = DocumentIntelligenceClient(
-                    endpoint=self.azure_endpoint,
-                    credential=credential
-                )
-            else:
-                if not self.azure_key:
-                    raise ValueError("Azure Document Intelligence API key is required when not using managed identity")
+            # Determine authentication method:
+            # 1. If managed identity is enabled and we have a valid API key, use API key (explicit preference)
+            # 2. If managed identity is enabled, try AzureCliCredential first (for local dev), fall back to ManagedIdentityCredential
+            # 3. Otherwise use API key authentication
+            
+            has_valid_api_key = self.azure_key and not self.azure_key.startswith('your_')
+            
+            if has_valid_api_key and not self.use_managed_identity:
+                # Explicit API key authentication
                 logger.info("Authenticating with API key")
+                assert self.azure_key is not None  # Already validated by has_valid_api_key
                 client = DocumentIntelligenceClient(
                     endpoint=self.azure_endpoint,
                     credential=AzureKeyCredential(self.azure_key)
                 )
+            else:
+                # Use Azure identity authentication (same pattern as Foundry agents)
+                # Try AzureCliCredential first for local development
+                try:
+                    logger.info("Authenticating with AzureCliCredential (local development)")
+                    credential = AzureCliCredential()
+                    client = DocumentIntelligenceClient(
+                        endpoint=self.azure_endpoint,
+                        credential=credential
+                    )
+                except Exception as cli_error:
+                    logger.warning(f"AzureCliCredential failed: {cli_error}. Trying ManagedIdentityCredential...")
+                    logger.info("Authenticating with ManagedIdentityCredential")
+                    credential = ManagedIdentityCredential()
+                    client = DocumentIntelligenceClient(
+                        endpoint=self.azure_endpoint,
+                        credential=credential
+                    )
             
             with open(file_path, 'rb') as f:
                 poller = client.begin_analyze_document(
