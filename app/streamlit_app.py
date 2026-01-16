@@ -83,6 +83,12 @@ if 'use_azure' not in st.session_state:
     st.session_state.use_azure = has_azure_search  # Default to True if Azure Search is configured
 if 'processing' not in st.session_state:
     st.session_state.processing = False
+if 'agent_service' not in st.session_state:
+    import os
+    st.session_state.agent_service = os.getenv('AGENT_SERVICE', 'agent-framework')
+if 'orchestrator_type' not in st.session_state:
+    import os
+    st.session_state.orchestrator_type = os.getenv('ORCHESTRATOR_TYPE', 'sequential')
 
 
 def main():
@@ -96,6 +102,48 @@ def main():
     with st.sidebar:
         st.image("https://via.placeholder.com/150x50/0078D4/FFFFFF?text=Azure+AI")
         st.title("Configuration")
+        
+        # Agent Service Selection
+        st.subheader("Agent Service")
+        agent_service = st.selectbox(
+            "Select Agent Service",
+            options=['agent-framework', 'foundry'],
+            index=0 if st.session_state.agent_service == 'agent-framework' else 1,
+            help="agent-framework: Uses Agent Framework SDK (supports Managed Identity)\nfoundry: Uses Azure AI Foundry Agent Service (requires API keys for local dev)"
+        )
+        st.session_state.agent_service = agent_service
+        
+        if agent_service == 'foundry':
+            st.caption("⚠️ Foundry service requires USE_MANAGED_IDENTITY=false for local development")
+            st.caption("👁️ Agents visible in Azure AI Foundry portal")
+        else:
+            st.caption("✓ Supports Managed Identity authentication")
+            st.caption("🚀 Uses Agent Framework sequential workflows")
+        
+        # Orchestrator Selection
+        st.subheader("Orchestrator Type")
+        orchestrator_options = {
+            'legacy': 'Original (Manual async)',
+            'sequential': 'Sequential Workflow (Agent Framework)',
+            'foundry': 'Foundry Orchestrator (azure-ai-projects)'
+        }
+        orchestrator_type = st.selectbox(
+            "Select Orchestrator",
+            options=list(orchestrator_options.keys()),
+            format_func=lambda x: orchestrator_options[x],
+            index=list(orchestrator_options.keys()).index(st.session_state.orchestrator_type) if st.session_state.orchestrator_type in orchestrator_options else 1,
+            help="Choose which orchestrator implementation to use for processing"
+        )
+        st.session_state.orchestrator_type = orchestrator_type
+        
+        if orchestrator_type == 'legacy':
+            st.caption("📌 Original orchestrator - Agent Framework only")
+        elif orchestrator_type == 'sequential':
+            st.caption("📌 Sequential workflow with event streaming")
+        else:
+            st.caption("📌 Agents created in Azure AI Foundry")
+        
+        st.divider()
         
         # Azure configuration
         st.subheader("Azure Services")
@@ -387,7 +435,7 @@ def show_results_page():
         show_compliance_tab(compliance_report)
     
     with tab4:
-        show_risk_tab(risk_report)
+        show_risk_tab(risk_report, compliance_report)
     
     with tab5:
         show_email_tab(results)
@@ -428,7 +476,7 @@ def show_overview_tab(results: Dict[str, Any]):
         st.markdown("### Overall Assessment")
         st.markdown(f"**Status:** {results['overall_status'].upper().replace('_', ' ')}")
         st.markdown(f"**Risk Level:** {risk_report['risk_level'].upper()}")
-        st.markdown(f"**Confidence:** {risk_report['confidence']:.1f}%")
+        st.markdown(f"**Assessment Certainty:** {risk_report.get('assessment_certainty', risk_report.get('confidence', 0)):.1f}%")
         
         if risk_report.get('requires_notification'):
             st.warning("⚠️ Attorney review required")
@@ -610,7 +658,7 @@ def show_compliance_tab(compliance_report: Dict[str, Any]):
         st.info("No warnings")
 
 
-def show_risk_tab(risk_report: Dict[str, Any]):
+def show_risk_tab(risk_report: Dict[str, Any], compliance_report: Dict[str, Any] = None):
     """Risk analysis tab content."""
     st.subheader("Risk Assessment")
     
@@ -623,8 +671,8 @@ def show_risk_tab(risk_report: Dict[str, Any]):
         st.metric("Overall Risk Score", f"{score:.1f}%", delta=level.upper())
     
     with col2:
-        confidence = risk_report['confidence']
-        st.metric("Confidence", f"{confidence:.1f}%")
+        certainty = risk_report.get('assessment_certainty', risk_report.get('confidence', 0))
+        st.metric("Assessment Certainty", f"{certainty:.1f}%")
     
     with col3:
         required = "Yes" if risk_report.get('requires_notification') else "No"
@@ -632,30 +680,63 @@ def show_risk_tab(risk_report: Dict[str, Any]):
     
     st.divider()
     
-    # Risk breakdown
-    st.markdown("### Risk Breakdown")
+    # Risk Score Breakdown (like React app)
+    st.markdown("### 📊 Risk Score Breakdown")
+    st.caption("Formula: Risk = (Confidence-Weighted Compliance × 60%) + (Quality × 25%) + (Completeness × 15%)")
+    
     breakdown = risk_report.get('risk_breakdown', {})
+    compliance_risk = breakdown.get('compliance_risk', {})
+    quality_risk = breakdown.get('quality_risk', {})
+    completeness_risk = breakdown.get('completeness_risk', {})
+    
+    # Get raw compliance score and confidence for transparency
+    raw_compliance_score = compliance_report.get('compliance_score', 0) if compliance_report else 0
+    ai_confidence = compliance_report.get('confidence_score', 70) if compliance_report else 70
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        compliance_risk = breakdown.get('compliance_risk', {})
+        st.markdown("#### Compliance (60%)")
+        st.metric("Weighted Score", f"{compliance_risk.get('score', 0):.1f}%")
+        st.caption(f"= {raw_compliance_score:.0f}% × {ai_confidence:.0f}% confidence")
+    
+    with col2:
+        st.markdown("#### Quality (25%)")
+        st.metric("Score", f"{quality_risk.get('score', 0):.1f}%")
+        st.caption("Document structure & clarity")
+    
+    with col3:
+        st.markdown("#### Completeness (15%)")
+        st.metric("Score", f"{completeness_risk.get('score', 0):.1f}%")
+        st.caption("Required sections present")
+    
+    # Explanation note
+    st.info(f"""
+    💡 **Note:** The Compliance Score from the Compliance tab ({raw_compliance_score:.1f}%) 
+    is multiplied by AI Confidence ({ai_confidence:.1f}%) to produce the risk-weighted value ({compliance_risk.get('score', 0):.1f}%). 
+    Lower AI confidence reduces the weighted score to account for analysis uncertainty.
+    """)
+    
+    st.divider()
+    
+    # Risk breakdown details
+    st.markdown("### Risk Component Details")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
         st.markdown("#### Compliance Risk")
-        st.metric("Score", f"{compliance_risk.get('score', 0):.1f}%")
         st.caption(f"Violations: {compliance_risk.get('violations_count', 0)}")
         st.caption(f"Warnings: {compliance_risk.get('warnings_count', 0)}")
     
     with col2:
-        quality_risk = breakdown.get('quality_risk', {})
         st.markdown("#### Quality Risk")
-        st.metric("Score", f"{quality_risk.get('score', 0):.1f}%")
         st.caption(f"Words: {quality_risk.get('word_count', 0)}")
         st.caption(f"Pages: {quality_risk.get('page_count', 0)}")
     
     with col3:
-        completeness_risk = breakdown.get('completeness_risk', {})
         st.markdown("#### Completeness Risk")
-        st.metric("Score", f"{completeness_risk.get('score', 0):.1f}%")
+        st.caption(f"Score: {completeness_risk.get('score', 0):.1f}%")
     
     st.divider()
     
@@ -859,33 +940,89 @@ def show_about_page():
     The system leverages specialized AI agents in a multi-agent orchestration pattern to provide 
     end-to-end automation from document ingestion through risk assessment and notification.
     
+    ### ⚠️ Preview Features & SDK Versions
+    
+    This project uses **Azure AI Foundry Portal (preview)** and several **beta/preview SDK packages**:
+    
+    | Package | Version | Status |
+    |---------|---------|--------|
+    | `agent-framework` | 1.0.0b260114 | Beta |
+    | `azure-ai-projects` | 2.0.0b3 | Beta |
+    | `azure-ai-agents` | 1.2.0b5 | Beta |
+    | `azure-search-documents` | 11.7.0b2 | Beta |
+    
+    > **Note**: Preview features may not be suitable for production workloads.
+    
     ### Features
     
     - **📄 Document Processing**: Automatic text extraction from PDF, Word, and text files
     - **📋 AI Summarization**: Generate executive summaries and identify key clauses
-    - **✅ Compliance Validation**: Cross-check proposals against executive orders
-    - **⚠️ Risk Assessment**: Calculate risk scores and identify issues
+    - **✅ Compliance Validation**: Cross-check proposals against executive orders with citations
+    - **⚠️ Risk Assessment**: Calculate risk scores using weighted formula (Compliance 60% + Quality 25% + Completeness 15%)
+    - **📊 Score Explanations**: Confidence, Compliance, and Risk scores with interpretations
     - **📧 Email Notifications**: Automatic attorney notifications for high-risk proposals
     - **👨‍⚖️ Human-in-the-Loop**: Attorney validation workflow
     
+    ### Orchestrator Options
+    
+    This demo supports **three orchestrator implementations**:
+    
+    1. **Original Orchestrator** (`legacy`)
+       - Manual async coordination
+       - Agent Framework only (`AGENT_SERVICE=agent-framework`)
+    
+    2. **Sequential Workflow Orchestrator** (`sequential`)
+       - Agent Framework sequential workflows with event streaming
+       - Clear separation of concerns with Executor classes
+    
+    3. **Foundry Orchestrator** (`foundry`)
+       - Uses Azure AI Projects SDK (`azure-ai-projects`)
+       - Agents visible in Azure AI Foundry portal
+       - Requires `AGENT_SERVICE=foundry`
+    
     ### Technology Stack
     
-    - **Azure AI Agent Framework**: Multi-agent orchestration & coordination
-    - **Azure AI Foundry**: Agent deployment & management
+    - **Azure AI Agent Framework**: Multi-agent orchestration & coordination (v1.0.0b260114)
+    - **Azure AI Foundry**: Agent deployment & management (preview)
+    - **Azure AI Projects SDK**: Foundry agent service (v2.0.0b3)
     - **Azure OpenAI**: GPT-4 LLM analysis
-    - **Azure AI Search**: Semantic search & RAG
+    - **Azure AI Search**: Semantic search & RAG (v11.7.0b2)
     - **Azure Document Intelligence**: OCR and document processing
     - **Azure Function Apps**: Email notifications and workflows
-    - **React + TypeScript**: Modern UI framework (production)
+    - **React 19.2.3 + TypeScript 5.7.3**: Modern UI framework (production)
     - **FastAPI**: REST backend API
     - **Streamlit**: Interactive demo interface (legacy)
+    
+    ### Environment Variables
+    
+    Key configuration options:
+    
+    ```bash
+    # Agent Service Selection
+    AGENT_SERVICE=agent-framework  # or 'foundry'
+    
+    # Authentication (depends on AGENT_SERVICE)
+    # agent-framework → USE_MANAGED_IDENTITY=true (recommended)
+    # foundry → USE_MANAGED_IDENTITY=false (required for local dev)
+    USE_MANAGED_IDENTITY=true
+    
+    # Orchestrator Type
+    ORCHESTRATOR_TYPE=sequential  # or 'legacy' or 'foundry'
+    
+    # Foundry Agent Persistence (when AGENT_SERVICE=foundry)
+    PERSIST_FOUNDRY_AGENTS=false  # true to keep agents in portal
+    
+    # Demo Mode
+    DEMO_MODE=true  # false for production with Azure services
+    KNOWLEDGE_BASE_SOURCE=local  # or 'azure'
+    ```
     
     ### Workflow
     
     1. **Upload Proposal** → Document Ingestion Agent extracts text
     2. **Summarization** → Creates executive summary
-    3. **Compliance Check** → Validates against executive orders
-    4. **Risk Scoring** → Assigns compliance score
+    3. **Compliance Check** → Validates against executive orders with citations
+    4. **Risk Scoring** → Calculates weighted risk score
     5. **Email Notification** → Alerts attorney if needed
     6. **Human Review** → Attorney validates and approves
     
@@ -895,16 +1032,17 @@ def show_about_page():
     
     - **Document Ingestion Agent**: OCR and text extraction
     - **Summarization Agent**: Content analysis
-    - **Compliance Validator Agent**: Executive order matching
-    - **Risk Scoring Agent**: Risk assessment
+    - **Compliance Validator Agent**: Executive order matching with citations
+    - **Risk Scoring Agent**: Weighted risk assessment
     - **Email Trigger Agent**: Notification management
     
-    ### Configuration
+    ### Sidebar Configuration
     
-    Toggle "Use Azure Services" in the sidebar to switch between:
+    Use the sidebar to configure:
     
-    - **Azure Mode**: Full integration with Azure services
-    - **Demo Mode**: Local processing for quick testing
+    - **Agent Service**: Select `agent-framework` or `foundry`
+    - **Orchestrator Type**: Choose from `legacy`, `sequential`, or `foundry`
+    - **Azure Services**: Toggle Azure integration on/off
     
     ### Setting Up Azure AI Search
     
@@ -925,14 +1063,15 @@ def show_about_page():
        python scripts/index_knowledge_base.py
        ```
     
-    See [AZURE_SEARCH_SETUP.md](../AZURE_SEARCH_SETUP.md) for detailed instructions.
+    See [docs/uploadPdfsToAzureSearch.md](../docs/uploadPdfsToAzureSearch.md) for detailed instructions.
     
     ### Learn More
     
     - [Azure AI Agent Framework](https://learn.microsoft.com/azure/ai-services/agents/)
-    - [Azure AI Foundry](https://learn.microsoft.com/azure/ai-studio/)
-    - [Project Repository](https://github.com/your-org/grant-compliance-demo)
-    - [Documentation](https://github.com/your-org/grant-compliance-demo/docs)
+    - [Azure AI Foundry](https://learn.microsoft.com/azure/ai-foundry/)
+    - [Project Documentation](../docs/)
+    - [Scoring System](../docs/ScoringSystem.md)
+    - [Sequential Workflow Orchestrator](../docs/SequentialWorkflowOrchestrator.md)
     """)
 
 
