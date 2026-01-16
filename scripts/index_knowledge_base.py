@@ -34,7 +34,6 @@ try:
     # Document Intelligence is optional
     try:
         from azure.ai.documentintelligence import DocumentIntelligenceClient
-        from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
         DOCINT_AVAILABLE = True
     except ImportError:
         DocumentIntelligenceClient = None

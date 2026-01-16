@@ -122,9 +122,8 @@ class DocumentIngestionAgent:
         """Process document using Azure Document Intelligence (OCR-enabled)."""
         try:
             from azure.ai.documentintelligence import DocumentIntelligenceClient
-            from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
             from azure.core.credentials import AzureKeyCredential
-            from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+            from azure.identity import DefaultAzureCredential
             
             if not self.azure_endpoint:
                 raise ValueError("Azure Document Intelligence endpoint is required")

@@ -6,16 +6,17 @@ Tests the AgentOrchestrator with complete end-to-end workflow.
 """
 
 import sys
+import asyncio
 from pathlib import Path
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.orchestrator import AgentOrchestrator
 from dotenv import load_dotenv
 
 
-def test_orchestrator():
+async def test_orchestrator():
     """Test orchestrator with complete workflow."""
     
     print("=" * 70)
@@ -25,14 +26,15 @@ def test_orchestrator():
     # Load environment
     load_dotenv()
     
-    # Find a sample file
-    sample_dir = Path(__file__).parent / 'knowledge_base' / 'sample_proposals'
+    # Find a sample file (relative to project root, not tests dir)
+    project_root = Path(__file__).parent.parent
+    sample_dir = project_root / 'knowledge_base' / 'sample_proposals'
     
     if not sample_dir.exists() or not list(sample_dir.glob('*')):
         print("\n⚠️  No sample files found. Creating test file...")
         
-        # Create test file
-        test_file = Path(__file__).parent / 'test_proposal.txt'
+        # Create test file in tests directory
+        test_file = project_root / 'tests' / 'test_proposal.txt'
         test_content = """
 Grant Proposal: Community Climate Resilience Initiative
 
@@ -111,13 +113,13 @@ appropriate program design and meaningful stakeholder participation.
             print(f"\n⏳ Processing document: {test_file.name}")
             print("-" * 70)
             
-            result = orchestrator.process_grant_proposal(
+            result = await orchestrator.process_grant_proposal_async(
                 str(test_file),
                 send_email=False  # Don't send real email in test
             )
             
             # Display results
-            print(f"\n✅ Processing complete!")
+            print("\n✅ Processing complete!")
             
             print("\n" + "=" * 70)
             print("📊 WORKFLOW RESULTS")
@@ -199,7 +201,7 @@ appropriate program design and meaningful stakeholder participation.
 
 if __name__ == "__main__":
     try:
-        success = test_orchestrator()
+        success = asyncio.run(test_orchestrator())
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"\n❌ Test failed: {str(e)}")
