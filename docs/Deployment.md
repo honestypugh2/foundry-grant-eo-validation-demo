@@ -132,7 +132,7 @@ cd frontend && npm run dev
 
 ```bash
 # Set variables
-RESOURCE_GROUP="rg-grant-compliance-prod"
+RESOURCE_GROUP="rg-grant-compliance-demo"
 LOCATION="eastus"
 DEPLOYMENT_NAME="grant-compliance-$(date +%Y%m%d-%H%M%S)"
 
