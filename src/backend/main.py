@@ -239,8 +239,8 @@ async def process_sample_document(request: ProcessSampleRequest):
         Complete workflow results including compliance and risk reports
     """
     try:
-        # Find sample file
-        sample_dir = Path(__file__).parent.parent / 'knowledge_base' / 'sample_proposals'
+        # Find sample file (knowledge_base is at project root, not under src/)
+        sample_dir = Path(__file__).parent.parent.parent / 'knowledge_base' / 'sample_proposals'
         sample_files = list(sample_dir.glob(f"{request.sample_name}*"))
         
         if not sample_files:
@@ -303,7 +303,8 @@ async def get_knowledge_base_info():
 
 async def _get_knowledge_base_from_local() -> Dict[str, Any]:
     """Get knowledge base information from local file system."""
-    kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+    # knowledge_base is at project root, not under src/
+    kb_path = Path(__file__).parent.parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
     
     # Count executive orders
     eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
@@ -397,8 +398,8 @@ async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
                 for doc in eo_results
             ]
             
-            # Also include local sample proposals
-            kb_path = Path(__file__).parent.parent / 'knowledge_base'
+            # Also include local sample proposals (knowledge_base is at project root)
+            kb_path = Path(__file__).parent.parent.parent / 'knowledge_base'
             sample_dir = kb_path / 'sample_proposals'
             sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt')) if sample_dir.exists() else []
             
@@ -447,8 +448,8 @@ async def _get_knowledge_base_from_azure() -> Dict[str, Any]:
                     for doc in eo_results
                 ]
                 
-                # Also include local sample proposals
-                kb_path = Path(__file__).parent.parent / 'knowledge_base'
+                # Also include local sample proposals (knowledge_base is at project root)
+                kb_path = Path(__file__).parent.parent.parent / 'knowledge_base'
                 sample_dir = kb_path / 'sample_proposals'
                 sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt')) if sample_dir.exists() else []
                 
@@ -546,8 +547,8 @@ async def get_executive_order(name: str):
             except Exception as azure_error:
                 logger.warning(f"Azure search failed for {name}, trying local: {azure_error}")
         
-        # Fallback to local files
-        kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+        # Fallback to local files (knowledge_base is at project root)
+        kb_path = Path(__file__).parent.parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
         eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
         
         # Find the file (could be .txt or .pdf)
@@ -591,7 +592,8 @@ async def get_executive_order(name: str):
 async def get_sample_proposals():
     """Get list of sample proposals."""
     try:
-        kb_path = Path(__file__).parent.parent / 'knowledge_base'
+        # knowledge_base is at project root, not under src/
+        kb_path = Path(__file__).parent.parent.parent / 'knowledge_base'
         sample_dir = kb_path / 'sample_proposals'
         
         sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt'))
@@ -617,7 +619,8 @@ async def get_sample_proposals():
 async def download_executive_order(name: str):
     """Download a PDF executive order (Local file system only)."""
     try:
-        kb_path = Path(__file__).parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
+        # knowledge_base is at project root, not under src/
+        kb_path = Path(__file__).parent.parent.parent / 'knowledge_base' if not KNOWLEDGE_BASE_PATH.is_absolute() else KNOWLEDGE_BASE_PATH
         eo_dir = kb_path / 'sample_executive_orders' if not EXECUTIVE_ORDERS_PATH.is_absolute() else EXECUTIVE_ORDERS_PATH
         
         # Find the PDF file
