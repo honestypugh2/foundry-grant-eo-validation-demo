@@ -22,9 +22,11 @@ Set the `AGENT_SERVICE` environment variable to choose which implementation to u
 ```bash
 # Use Agent Framework (default)
 export AGENT_SERVICE=agent-framework
+export USE_MANAGED_IDENTITY=true
 
 # Use Azure AI Foundry Agent Service
 export AGENT_SERVICE=foundry
+USE_MANAGED_IDENTITY=false
 ```
 
 ### Architecture
