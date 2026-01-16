@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.document_ingestion_agent import DocumentIngestionAgent
 from dotenv import load_dotenv

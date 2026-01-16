@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 print('=' * 80)
 print('FULL WORKFLOW TEST - DATA FLOW VERIFICATION')

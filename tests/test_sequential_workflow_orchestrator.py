@@ -9,8 +9,8 @@ import os
 from pathlib import Path
 import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.sequential_workflow_orchestrator import SequentialWorkflowOrchestrator
 

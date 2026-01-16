@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.compliance_agent import ComplianceAgent
 

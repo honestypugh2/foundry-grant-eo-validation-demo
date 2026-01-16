@@ -8,8 +8,8 @@ import sys
 import logging
 from pathlib import Path
 
-# Add parent directory to path to import agents
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.document_ingestion_agent import DocumentIngestionAgent
 

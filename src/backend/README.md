@@ -136,9 +136,9 @@ backend/
 - **Pydantic** - Data validation
 
 The backend also uses the agent orchestrators from the parent project:
-- `agents/orchestrator.py` - Original multi-agent workflow
-- `agents/sequential_workflow_orchestrator.py` - Agent Framework Sequential Workflow
-- `agents/sequential_workflow_orchestrator_foundry.py` - Azure AI Foundry Agent Service
+- `src/agents/orchestrator.py` - Original multi-agent workflow
+- `src/agents/sequential_workflow_orchestrator.py` - Agent Framework Sequential Workflow
+- `src/agents/sequential_workflow_orchestrator_foundry.py` - Azure AI Foundry Agent Service
 
 Select the orchestrator via `AGENT_SERVICE` environment variable.
 
@@ -198,11 +198,11 @@ netstat -ano | findstr :8000   # Windows
 
 ### Import Errors
 
-Ensure you're running from the backend directory and the parent project agents are accessible:
+Ensure you're running from the project root and the src/agents are accessible:
 
 ```bash
-cd backend
-python -c "from agents.orchestrator import AgentOrchestrator"
+cd /path/to/project
+python -c "from src.agents.orchestrator import AgentOrchestrator"
 ```
 
 ### File Upload Issues

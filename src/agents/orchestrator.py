@@ -201,6 +201,7 @@ class AgentOrchestrator:
             # Compile final results
             workflow_results.update({
                 'status': 'completed',
+                'use_azure': self.use_azure,
                 'document_data': document_data,
                 'metadata': metadata,
                 'summary': summary,

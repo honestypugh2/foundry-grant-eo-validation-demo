@@ -8,8 +8,8 @@ Tests the RiskScoringAgent with sample compliance and summary data.
 import sys
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.risk_scoring_agent import RiskScoringAgent
 from dotenv import load_dotenv

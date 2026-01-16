@@ -10,7 +10,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any
 
-# Add parent directory to path to import agents
+# Add src directory to path to import agents
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.orchestrator import AgentOrchestrator
@@ -213,9 +213,9 @@ def main():
         
         st.divider()
         
-        # Knowledge base info
+        # Knowledge base info (knowledge_base is at project root, not under src/)
         st.subheader("Knowledge Base")
-        kb_path = Path(__file__).parent.parent / 'knowledge_base'
+        kb_path = Path(__file__).parent.parent.parent / 'knowledge_base'
         eo_dir = kb_path / 'sample_executive_orders'
         eo_count = len(list(eo_dir.glob('*.txt'))) + len(list(eo_dir.glob('*.pdf')))
         st.metric("Executive Orders", eo_count)
@@ -267,9 +267,9 @@ def show_upload_page():
             help="Upload PDF, Word, or text document"
         )
         
-        # Or select from samples
+        # Or select from samples (knowledge_base is at project root)
         st.markdown("### Or select a sample proposal")
-        sample_dir = Path(__file__).parent.parent / 'knowledge_base' / 'sample_proposals'
+        sample_dir = Path(__file__).parent.parent.parent / 'knowledge_base' / 'sample_proposals'
         sample_files = list(sample_dir.glob('*.pdf')) + list(sample_dir.glob('*.txt'))
         sample_names = ['-- Select a sample --'] + [f.name for f in sample_files]
         
@@ -854,7 +854,8 @@ def show_knowledge_base_page():
     st.markdown('<div class="main-header">📚 Knowledge Base Explorer</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">Browse executive orders and compliance guidelines</div>', unsafe_allow_html=True)
     
-    kb_path = Path(__file__).parent.parent / 'knowledge_base'
+    # knowledge_base is at project root, not under src/
+    kb_path = Path(__file__).parent.parent.parent / 'knowledge_base'
     
     # Executive Orders
     st.markdown("### Executive Orders")

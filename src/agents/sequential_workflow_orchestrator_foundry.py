@@ -352,6 +352,7 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
             # Compile final results
             workflow_results.update({
                 'status': 'completed',
+                'use_azure': self.use_azure,
                 'document_data': document_data,
                 'metadata': metadata,
                 'summary': summary,

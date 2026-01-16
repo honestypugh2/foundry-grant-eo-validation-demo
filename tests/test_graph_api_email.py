@@ -9,7 +9,7 @@ Make sure to configure AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and AZURE_TENANT_ID
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.email_trigger_agent import EmailTriggerAgent
 from dotenv import load_dotenv
