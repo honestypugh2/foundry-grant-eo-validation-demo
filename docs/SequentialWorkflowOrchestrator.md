@@ -1,12 +1,35 @@
 # Sequential Workflow Orchestrator
 
-This is an alternative orchestrator implementation based on **Microsoft Agent Framework's Sequential Workflow** pattern. It provides a cleaner, more modular approach to coordinating the compliance validation pipeline.
+This document covers **two orchestrator implementations** that provide modular, pipeline-based approaches to coordinating the compliance validation workflow:
+
+1. **Sequential Workflow Orchestrator** (Agent Framework) - Uses Microsoft Agent Framework's `WorkflowBuilder` pattern
+2. **Sequential Workflow Orchestrator Foundry** (Azure AI Projects SDK) - Uses Azure AI Foundry Agent Service
 
 ## Overview
 
-The Sequential Workflow Orchestrator uses Agent Framework's `WorkflowBuilder` and `Executor` patterns to create a pipeline where each agent processes the task in turn, with output flowing from one to the next.
+Both orchestrators process documents through a sequential pipeline where each agent handles its task and passes results to the next. The key difference is the underlying SDK used for AI agents.
+
+### Agent Framework Version
+The `SequentialWorkflowOrchestrator` uses Agent Framework's `WorkflowBuilder` and `Executor` patterns to create a pipeline where each agent processes the task in turn, with output flowing from one to the next.
+
+### Foundry Version  
+The `SequentialWorkflowOrchestratorFoundry` uses the `azure-ai-projects` SDK to create agents directly in Azure AI Foundry. Agents can optionally persist in the Foundry portal for debugging and monitoring.
+
+### Selecting an Orchestrator
+
+Set the `AGENT_SERVICE` environment variable to choose which implementation to use:
+
+```bash
+# Use Agent Framework (default)
+export AGENT_SERVICE=agent-framework
+
+# Use Azure AI Foundry Agent Service
+export AGENT_SERVICE=foundry
+```
 
 ### Architecture
+
+Both orchestrators follow the same logical pipeline:
 
 ```
 ┌─────────────────┐
@@ -16,32 +39,32 @@ The Sequential Workflow Orchestrator uses Agent Framework's `WorkflowBuilder` an
          │
          ▼
 ┌────────────────────┐
-│ Document Ingestion │
+│ Document Ingestion │  ← Local processing with Azure Document Intelligence
 │    Executor        │
 └────────┬───────────┘
          │
          ▼
 ┌────────────────────┐
-│  Summarization     │
+│  Summarization     │  ← AI Agent (Agent Framework OR Foundry)
 │    Executor        │
 └────────┬───────────┘
          │
          ▼
 ┌────────────────────┐
-│ Compliance         │
+│ Compliance         │  ← AI Agent with Azure AI Search tool
 │ Validation         │
 │    Executor        │
 └────────┬───────────┘
          │
          ▼
 ┌────────────────────┐
-│  Risk Scoring      │
+│  Risk Scoring      │  ← Local calculation (no AI needed)
 │    Executor        │
 └────────┬───────────┘
          │
          ▼
 ┌────────────────────┐
-│ Email Notification │
+│ Email Notification │  ← Local email preparation
 │    Executor        │
 │  (Terminal Node)   │
 └────────┬───────────┘
@@ -81,6 +104,66 @@ Each step is encapsulated in its own executor:
 - **ComplianceValidationExecutor** - Validate against regulations
 - **RiskScoringExecutor** - Calculate risk scores
 - **EmailNotificationExecutor** - Send notifications (terminal node)
+
+---
+
+## Foundry Orchestrator Features
+
+The `SequentialWorkflowOrchestratorFoundry` uses the `azure-ai-projects` SDK and offers additional features:
+
+### 1. Agent Persistence (Optional)
+Agents can be persisted in the Azure AI Foundry portal for debugging:
+
+```bash
+# Enable agent persistence (agents remain visible in Foundry portal)
+export PERSIST_FOUNDRY_AGENTS=true
+```
+
+When enabled:
+- Agents are NOT deleted after workflow completion
+- View agent definitions in the Foundry portal
+- Inspect conversation threads for debugging
+- Useful for development and troubleshooting
+
+**Default**: Agents are deleted after each run to keep the portal clean.
+
+### 2. Azure AI Search Integration
+The compliance agent uses Azure AI Search as a tool:
+
+```python
+AzureAISearchAgentTool(
+    tool_resources=AzureAISearchToolResource(
+        indexes=[AISearchIndexResource(
+            index_connection_id=connection_id,
+            index_name=index_name,
+            query_type=AzureAISearchQueryType.SIMPLE
+        )]
+    )
+)
+```
+
+### 3. Compliance Score Calculation
+The orchestrator calculates `compliance_score` (how compliant the proposal is) separately from `confidence_score` (how certain the AI is):
+
+```python
+def _calculate_compliance_score_from_analysis(
+    self,
+    status: str,           # compliant/requires_review/non_compliant
+    analysis_text: str,    # Full analysis from compliance agent
+    relevant_eos: list     # Executive orders found
+) -> float:
+    # Base score from status
+    if status == 'compliant':
+        base_score = 90.0
+    elif status == 'non_compliant':
+        base_score = 30.0
+    else:  # requires_review
+        base_score = 60.0
+    
+    # Adjust based on indicators in the analysis
+    # ... (see implementation for full logic)
+    return max(0.0, min(100.0, final_score))
+```
 
 ## Usage
 
@@ -141,13 +224,15 @@ async def process_with_monitoring(file_path: str):
 results = asyncio.run(process_with_monitoring("proposal.pdf"))
 ```
 
-## Comparison with Original Orchestrator
+## Comparison of Orchestrators
 
-| Feature | Original Orchestrator | Sequential Workflow Orchestrator |
-|---------|----------------------|----------------------------------|
-| Pattern | Manual async coordination | Agent Framework Sequential Workflow |
-| Modularity | Methods in single class | Separate Executor classes |
-| State Management | Manual dictionary passing | Typed WorkflowContext |
+| Feature | Original Orchestrator | Sequential Workflow | Foundry Orchestrator |
+|---------|----------------------|---------------------|----------------------|
+| Pattern | Manual async coordination | Agent Framework Workflow | Azure AI Projects SDK |
+| Modularity | Methods in single class | Separate Executor classes | Method-based steps |
+| State Management | Manual dictionary passing | Typed WorkflowContext | Manual dictionary |
+| Agent Persistence | N/A | N/A | ✅ Optional |
+| Portal Visibility | ❌ No | ❌ No | ✅ Yes |
 | Event Streaming | ❌ No | ✅ Yes |
 | Error Handling | Try-catch blocks | Event-based error handling |
 | Extensibility | Add methods to class | Add new Executors to pipeline |
@@ -162,6 +247,13 @@ Required:
 - `AZURE_OPENAI_DEPLOYMENT_NAME` - Model deployment name (e.g., "gpt-4o")
 - `AZURE_SEARCH_ENDPOINT` - Azure AI Search endpoint
 - `AZURE_SEARCH_INDEX_NAME` - Search index name
+
+Orchestrator Selection:
+- `AGENT_SERVICE` - Which orchestrator to use: `agent-framework` (default) or `foundry`
+
+Foundry-Specific:
+- `PERSIST_FOUNDRY_AGENTS` - Keep agents in Foundry portal after runs (default: "false")
+- `AZURE_SEARCH_CONNECTION_ID` - Foundry connection ID for Azure AI Search
 
 Optional:
 - `USE_MANAGED_IDENTITY` - Use managed identity (default: "true")
