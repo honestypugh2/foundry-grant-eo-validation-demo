@@ -37,7 +37,7 @@ pip install -r requirements.txt --pre
 
 More images can be found at [images directory](images/).
 
-> **📌 Note**: To use the Streamlit app, navigate to the project root directory before running `streamlit run app/streamlit_app_new.py`.
+> **📌 Note**: To use the Streamlit app, navigate to the project root directory before running `streamlit run src/app/streamlit_app.py`.
 
 ---
 
@@ -162,14 +162,14 @@ Currently, county departments submit grant proposals and related documents via e
 
 This project includes **four orchestrator implementations** to coordinate the compliance validation workflow:
 
-### 1. **Original Orchestrator** ([agents/orchestrator.py](agents/orchestrator.py))
+### 1. **Original Orchestrator** ([src/agents/orchestrator.py](src/agents/orchestrator.py))
 - **Pattern**: Manual async coordination
 - **Structure**: Single class with async methods
 - **Best For**: Simple, straightforward workflows
 - **SDK Support**: Agent Framework only (`AGENT_SERVICE=agent-framework`)
 - **Usage**: Production-ready, battle-tested implementation
 
-### 2. **Sequential Workflow Orchestrator** ([agents/sequential_workflow_orchestrator.py](agents/sequential_workflow_orchestrator.py))
+### 2. **Sequential Workflow Orchestrator** ([src/agents/sequential_workflow_orchestrator.py](src/agents/sequential_workflow_orchestrator.py))
 - **Pattern**: Agent Framework Sequential Workflow
 - **Structure**: Separate Executor classes for each step
 - **Best For**: Complex, observable, extensible workflows
@@ -181,7 +181,7 @@ This project includes **four orchestrator implementations** to coordinate the co
   - ♻️ Reusable components across workflows
   - 📈 Scalable architecture for easy extension
 
-### 3. **Foundry Orchestrator** ([agents/sequential_workflow_orchestrator_foundry.py](agents/sequential_workflow_orchestrator_foundry.py)) ✨ NEW
+### 3. **Foundry Orchestrator** ([src/agents/sequential_workflow_orchestrator_foundry.py](src/agents/sequential_workflow_orchestrator_foundry.py)) ✨ NEW
 - **Pattern**: Azure AI Projects SDK (`azure-ai-projects`)
 - **Structure**: Agents created in Azure AI Foundry
 - **Best For**: Foundry portal integration, debugging agents
@@ -192,8 +192,8 @@ This project includes **four orchestrator implementations** to coordinate the co
   - 🔗 Azure AI Search tool integration
 
 ### 4. **Standalone Foundry Agents**
-- [agents/compliance_agent_foundry.py](agents/compliance_agent_foundry.py)
-- [agents/summarization_agent_foundry.py](agents/summarization_agent_foundry.py)
+- [src/agents/compliance_agent_foundry.py](src/agents/compliance_agent_foundry.py)
+- [src/agents/summarization_agent_foundry.py](src/agents/summarization_agent_foundry.py)
 
 **Selecting an Orchestrator**:
 ```bash
@@ -339,18 +339,18 @@ Each agent in the `/agents` folder is fully customizable to adapt to your specif
 ### Customization Examples
 
 ```python
-# agents/compliance_agent.py - Custom prompt
+# src/agents/compliance_agent.py - Custom prompt
 system_prompt = """
 You are a legal compliance expert specializing in environmental regulations.
 Focus on: Clean Air Act, Clean Water Act, and state-specific environmental orders.
 Provide citations to specific CFR sections when applicable.
 """
 
-# agents/summarization_agent.py - Text truncation
+# src/agents/summarization_agent.py - Text truncation
 max_input_tokens = 8000  # Increase for longer documents
 max_output_tokens = 1000  # Adjust summary length
 
-# agents/risk_scoring_agent.py - Custom ML integration
+# src/agents/risk_scoring_agent.py - Custom ML integration
 from azure.ai.textanalytics import TextAnalyticsClient
 sentiment_score = text_analytics_client.analyze_sentiment(document_text)
 risk_factors.append({"factor": "negative_sentiment", "weight": 0.1})
@@ -657,7 +657,7 @@ npm run dev
 ```bash
 # Activate virtual environment first
 source .venv/bin/activate
-streamlit run app/streamlit_app_new.py
+streamlit run src/app/streamlit_app.py
 # Opens at http://localhost:8501
 ```
 
@@ -766,7 +766,7 @@ Original demo interface available for reference:
 source .venv/bin/activate
 
 # Run Streamlit demo
-streamlit run app/streamlit_app_new.py
+streamlit run src/app/streamlit_app.py
 ```
 
 The Streamlit app will open at `http://localhost:8501`.
@@ -841,34 +841,40 @@ This deploys:
 
 ```
 foundry-grant-eo-validation-demo/
-├── frontend/                      # React + TypeScript UI (Primary)
-│   ├── src/
-│   │   ├── pages/                 # React pages (About, Upload, Results, Knowledge Base)
-│   │   └── components/            # Reusable UI components
-│   └── package.json               # Frontend dependencies
-├── backend/
-│   ├── main.py                    # FastAPI REST API
-│   ├── requirements.txt           # Backend dependencies
-│   └── test_server.py             # Backend test utilities
-├── app/
-│   ├── streamlit_app.py           # Streamlit demo interface
-│   ├── components/                # Streamlit UI components
-│   ├── pages/                     # Streamlit multi-page sections
-│   ├── assets/                    # Static assets (images, CSS)
-│   └── utils/                     # Helper functions
-├── agents/                        # AI Agents & Orchestrators
-│   ├── __init__.py
-│   ├── orchestrator.py            # Original orchestrator (Agent Framework only)
-│   ├── sequential_workflow_orchestrator.py      # ✅ Agent Framework Sequential Workflow
-│   ├── sequential_workflow_orchestrator_foundry.py # ✅ Foundry Orchestrator (azure-ai-projects)
-│   ├── compliance_agent.py        # ✅ Agent Framework - Compliance checking
-│   ├── compliance_agent_foundry.py # ✅ Foundry Agent - Compliance checking
-│   ├── summarization_agent.py     # ✅ Agent Framework - Summary generation
-│   ├── summarization_agent_foundry.py # ✅ Foundry Agent - Summary generation
-│   ├── document_ingestion_agent.py # Document processing (traditional class)
-│   ├── risk_scoring_agent.py      # Risk assessment (traditional class)
-│   ├── email_trigger_agent.py     # Email notification (traditional class)
-│   └── config/                    # Agent configurations
+├── src/                           # Main source code
+│   ├── frontend/                  # React + TypeScript UI (Primary)
+│   │   ├── src/
+│   │   │   ├── pages/             # React pages (About, Upload, Results, Knowledge Base)
+│   │   │   └── components/        # Reusable UI components
+│   │   └── package.json           # Frontend dependencies
+│   ├── backend/
+│   │   ├── main.py                # FastAPI REST API
+│   │   ├── requirements.txt       # Backend dependencies
+│   │   └── test_server.py         # Backend test utilities
+│   ├── app/
+│   │   ├── streamlit_app.py       # Streamlit demo interface
+│   │   ├── components/            # Streamlit UI components
+│   │   ├── pages/                 # Streamlit multi-page sections
+│   │   ├── assets/                # Static assets (images, CSS)
+│   │   └── utils/                 # Helper functions
+│   ├── agents/                    # AI Agents & Orchestrators
+│   │   ├── __init__.py
+│   │   ├── orchestrator.py        # Original orchestrator (Agent Framework only)
+│   │   ├── sequential_workflow_orchestrator.py      # ✅ Agent Framework Sequential Workflow
+│   │   ├── sequential_workflow_orchestrator_foundry.py # ✅ Foundry Orchestrator (azure-ai-projects)
+│   │   ├── compliance_agent.py    # ✅ Agent Framework - Compliance checking
+│   │   ├── compliance_agent_foundry.py # ✅ Foundry Agent - Compliance checking
+│   │   ├── summarization_agent.py # ✅ Agent Framework - Summary generation
+│   │   ├── summarization_agent_foundry.py # ✅ Foundry Agent - Summary generation
+│   │   ├── document_ingestion_agent.py # Document processing (traditional class)
+│   │   ├── risk_scoring_agent.py  # Risk assessment (traditional class)
+│   │   ├── email_trigger_agent.py # Email notification (traditional class)
+│   │   └── config/                # Agent configurations
+│   ├── functions/
+│   │   ├── document_processor/    # Azure Function for document ingestion
+│   │   ├── email_notifier/        # Azure Function for email notifications
+│   │   └── sharepoint_webhook_handler/ # Azure Function for SharePoint webhooks
+│   └── workflows/                 # Workflow definitions
 ├── examples/
 │   └── document_ingestion_with_managed_identity.py # Managed Identity example
 ├── knowledge_base/
@@ -876,10 +882,6 @@ foundry-grant-eo-validation-demo/
 │   ├── sample_executive_orders/   # 📄 Sample executive order PDFs
 │   ├── grant_guidelines/          # Grant compliance rules
 │   └── sample_proposals/          # 📄 Grant proposal PDFs for review
-├── functions/
-│   ├── document_processor/        # Azure Function for document ingestion
-│   ├── email_notifier/            # Azure Function for email notifications
-│   └── sharepoint_webhook_handler/ # Azure Function for SharePoint webhooks
 ├── infra/                         # Infrastructure as Code
 │   ├── main.bicep                 # Primary Bicep template
 │   ├── main.parameters.json       # Deployment parameters

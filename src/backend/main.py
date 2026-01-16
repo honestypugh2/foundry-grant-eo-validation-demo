@@ -16,7 +16,7 @@ import logging
 from typing import Dict, Any
 from dotenv import load_dotenv
 
-# Add parent directory to path
+# Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.orchestrator import AgentOrchestrator

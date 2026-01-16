@@ -20,7 +20,7 @@ The **current, production-ready** Streamlit application with real Azure AI agent
 
 **Run:**
 ```bash
-streamlit run app/streamlit_app.py
+streamlit run src/app/streamlit_app.py
 ```
 
 **Navigation:**
@@ -68,7 +68,7 @@ Legacy demo application kept as backup (uses mock data). Not for production use.
 
 3. **Run the application:**
    ```bash
-   streamlit run app/streamlit_app.py
+   streamlit run src/app/streamlit_app.py
    ```
 
 4. **Access the UI:**
@@ -80,7 +80,7 @@ Legacy demo application kept as backup (uses mock data). Not for production use.
 
 ```
 streamlit_app.py
-    ├── AgentOrchestrator (agents/orchestrator.py)
+    ├── AgentOrchestrator (src/agents/orchestrator.py)
     │   ├── DocumentIngestionAgent (azure-ai-documentintelligence)
     │   ├── SummarizationAgent (Azure AI Foundry)
     │   ├── ComplianceAgent (Azure AI Search + OpenAI)
@@ -117,7 +117,7 @@ Edit `streamlit_app.py` and follow these patterns:
 
 1. **Import agents:**
    ```python
-   from agents.orchestrator import AgentOrchestrator
+   from src.agents.orchestrator import AgentOrchestrator
    ```
 
 2. **Use async processing:**
@@ -137,10 +137,10 @@ Edit `streamlit_app.py` and follow these patterns:
 Test the Streamlit app:
 ```bash
 # Run in demo mode (no Azure services required)
-USE_MANAGED_IDENTITY=false streamlit run app/streamlit_app.py
+USE_MANAGED_IDENTITY=false streamlit run src/app/streamlit_app.py
 
 # Run with Azure services
-streamlit run app/streamlit_app.py
+streamlit run src/app/streamlit_app.py
 ```
 
 ---

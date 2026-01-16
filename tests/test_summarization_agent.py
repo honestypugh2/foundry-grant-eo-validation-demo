@@ -10,8 +10,8 @@ import os
 import asyncio
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add src directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from agents.summarization_agent import SummarizationAgent
 from dotenv import load_dotenv

@@ -17,9 +17,9 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Add project root to path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
+# Add src directory to path
+src_path = Path(__file__).parent.parent / 'src'
+sys.path.insert(0, str(src_path))
 
 from agents.email_trigger_agent import EmailTriggerAgent
 

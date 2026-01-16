@@ -52,10 +52,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["app", "agents"]
+packages = ["src/app", "src/agents"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -63,3 +64,4 @@ asyncio_mode = "auto"
 
 [tool.pyright]
 pythonVersion = "3.10"
+extraPaths = ["src"]

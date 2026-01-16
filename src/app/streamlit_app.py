@@ -10,7 +10,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, Any
 
-# Add parent directory to path to import agents
+# Add src directory to path to import agents
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agents.orchestrator import AgentOrchestrator

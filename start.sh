@@ -23,7 +23,7 @@ sleep 1
 
 # Start backend
 echo "Starting Backend API..."
-cd "$PROJECT_ROOT/backend"
+cd "$PROJECT_ROOT/src/backend"
 "$PROJECT_ROOT/.venv/bin/uvicorn" main:app --host 0.0.0.0 --port 8000 --reload > "$LOG_DIR/backend.log" 2>&1 &
 echo "Backend started (PID: $!)"
 
@@ -31,7 +31,7 @@ sleep 3
 
 # Start frontend
 echo "Starting Frontend App..."
-cd "$PROJECT_ROOT/frontend"
+cd "$PROJECT_ROOT/src/frontend"
 npm run dev > "$LOG_DIR/frontend.log" 2>&1 &
 echo "Frontend started (PID: $!)"
 
