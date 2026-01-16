@@ -368,9 +368,10 @@ class EmailNotificationExecutor(Executor):
     Sends email if risk warrants notification and yields final output.
     """
     
-    def __init__(self, use_graph_api: bool = False, send_email: bool = False):
+    def __init__(self, use_graph_api: bool = False, send_email: bool = False, use_azure: bool = False):
         self.agent = EmailTriggerAgent(use_graph_api=use_graph_api)
         self.send_email = send_email
+        self.use_azure = use_azure
         super().__init__(id="email_notification")
     
     @handler
@@ -425,6 +426,7 @@ class EmailNotificationExecutor(Executor):
         # Compile final results
         final_results = {
             'status': 'completed',
+            'use_azure': self.use_azure,
             'file_path': state['file_path'],
             'document_data': state['document_data'],
             'metadata': state['metadata'],
@@ -521,7 +523,8 @@ class SequentialWorkflowOrchestrator:
         
         email_executor = EmailNotificationExecutor(
             use_graph_api=self.use_azure,
-            send_email=self.send_email
+            send_email=self.send_email,
+            use_azure=self.use_azure
         )
         
         # Build sequential workflow: doc -> summary -> compliance -> risk -> email
