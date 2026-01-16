@@ -9,7 +9,7 @@
       "value": "${AZURE_LOCATION=eastus}"
     },
     "resourcePrefix": {
-      "value": "${AZURE_RESOURCE_PREFIX=grant-eo}"
+      "value": "${AZURE_RESOURCE_PREFIX=grant-eo-classic}"
     },
     "principalId": {
       "value": "${AZURE_PRINCIPAL_ID=}"

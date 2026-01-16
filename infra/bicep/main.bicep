@@ -156,8 +156,11 @@ resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
 // Storage Account
 // ============================================================================
 
+// Storage account names must be 3-24 chars, lowercase alphanumeric only
+var storageAccountName = take('${abbrs.storageStorageAccounts}${take(replace(resourcePrefix, '-', ''), 6)}${uniqueSuffix}', 24)
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = {
-  name: '${abbrs.storageStorageAccounts}${replace(resourcePrefix, '-', '')}${uniqueSuffix}'
+  name: storageAccountName
   location: location
   tags: tags
   kind: 'StorageV2'
