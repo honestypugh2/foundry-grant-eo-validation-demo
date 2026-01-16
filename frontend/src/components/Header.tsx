@@ -41,14 +41,18 @@ const Header: React.FC = () => {
           {orchestratorConfig && (
             <div className="text-sm">
               <div className={`flex items-center space-x-2 ${
-                orchestratorConfig.orchestrator_type === 'sequential' 
-                  ? 'text-purple-600' 
-                  : 'text-blue-600'
+                orchestratorConfig.agent_service === 'foundry'
+                  ? 'text-green-600'
+                  : orchestratorConfig.orchestrator_type === 'sequential' 
+                    ? 'text-purple-600' 
+                    : 'text-blue-600'
               }`}>
                 <span className={`w-2 h-2 rounded-full ${
-                  orchestratorConfig.orchestrator_type === 'sequential'
-                    ? 'bg-purple-500'
-                    : 'bg-blue-500'
+                  orchestratorConfig.agent_service === 'foundry'
+                    ? 'bg-green-500'
+                    : orchestratorConfig.orchestrator_type === 'sequential'
+                      ? 'bg-purple-500'
+                      : 'bg-blue-500'
                 }`}></span>
                 <span title={`Features: ${Object.entries(orchestratorConfig.features)
                   .filter(([_, v]) => v)

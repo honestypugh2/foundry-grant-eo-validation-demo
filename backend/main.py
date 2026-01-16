@@ -29,9 +29,23 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Agent Service configuration
+# AGENT_SERVICE: 'agent-framework' uses agent_framework SDK, 'foundry' uses azure-ai-projects SDK
+AGENT_SERVICE = os.getenv('AGENT_SERVICE', 'agent-framework').lower()
+
 # Orchestrator configuration - defaults to 'sequential' for the new Agent Framework workflow
 # Options: 'sequential' (Agent Framework workflows) or 'legacy' (original orchestrator)
 ORCHESTRATOR_TYPE = os.getenv('ORCHESTRATOR_TYPE', 'sequential').lower()
+
+# Import the appropriate Foundry orchestrator if needed
+SequentialWorkflowOrchestratorFoundry = None  # type: ignore
+if AGENT_SERVICE == 'foundry':
+    try:
+        from agents.sequential_workflow_orchestrator_foundry import SequentialWorkflowOrchestratorFoundry
+        logger.info("Foundry Agent Service SDK loaded successfully")
+    except ImportError as e:
+        logger.warning(f"Failed to import Foundry orchestrator: {e}. Falling back to agent-framework.")
+        AGENT_SERVICE = 'agent-framework'
 
 # Knowledge base configuration
 KNOWLEDGE_BASE_SOURCE = os.getenv('KNOWLEDGE_BASE_SOURCE', 'local').lower()
@@ -112,15 +126,30 @@ async def health_check():
 @app.get("/api/config/orchestrator")
 async def get_orchestrator_config():
     """Get the current orchestrator configuration."""
+    is_foundry = AGENT_SERVICE == 'foundry'
+    is_sequential = ORCHESTRATOR_TYPE == 'sequential'
+    
     return {
         "orchestrator_type": ORCHESTRATOR_TYPE,
-        "description": "Sequential Workflow (Agent Framework)" if ORCHESTRATOR_TYPE == "sequential" else "Legacy Orchestrator",
+        "agent_service": AGENT_SERVICE,
+        "description": _get_orchestrator_description(is_sequential, is_foundry),
         "features": {
-            "agent_framework_workflows": ORCHESTRATOR_TYPE == "sequential",
-            "azure_ai_search_hosted_tool": ORCHESTRATOR_TYPE == "sequential",
-            "streaming_support": ORCHESTRATOR_TYPE == "sequential",
+            "agent_framework_workflows": is_sequential and not is_foundry,
+            "foundry_agent_service": is_sequential and is_foundry,
+            "azure_ai_search_hosted_tool": is_sequential,
+            "streaming_support": is_sequential,
         }
     }
+
+
+def _get_orchestrator_description(is_sequential: bool, is_foundry: bool) -> str:
+    """Get a description of the current orchestrator configuration."""
+    if not is_sequential:
+        return "Legacy Orchestrator"
+    elif is_foundry:
+        return "Sequential Workflow (Foundry Agent Service - azure-ai-projects SDK)"
+    else:
+        return "Sequential Workflow (Agent Framework SDK)"
 
 
 @app.get("/api/azure/status", response_model=AzureServiceStatus)
@@ -166,10 +195,15 @@ async def process_uploaded_document(
         logger.info(f"Processing uploaded file: {file.filename}")
         
         # Initialize orchestrator based on configuration
-        # ORCHESTRATOR_TYPE: 'sequential' uses Agent Framework workflows, 'legacy' uses original orchestrator
+        # AGENT_SERVICE: 'foundry' uses Foundry Agent Service, 'agent-framework' uses Agent Framework SDK
+        # ORCHESTRATOR_TYPE: 'sequential' uses workflow, 'legacy' uses original orchestrator
         if ORCHESTRATOR_TYPE == 'sequential':
-            logger.info("Using Sequential Workflow Orchestrator (Agent Framework)")
-            orchestrator = SequentialWorkflowOrchestrator(use_azure=use_azure, send_email=send_email)
+            if AGENT_SERVICE == 'foundry' and SequentialWorkflowOrchestratorFoundry is not None:
+                logger.info("Using Sequential Workflow Orchestrator (Foundry Agent Service)")
+                orchestrator = SequentialWorkflowOrchestratorFoundry(use_azure=use_azure, send_email=send_email)
+            else:
+                logger.info("Using Sequential Workflow Orchestrator (Agent Framework)")
+                orchestrator = SequentialWorkflowOrchestrator(use_azure=use_azure, send_email=send_email)
             results = await orchestrator.process_grant_proposal_async(tmp_file_path)
         else:
             logger.info("Using Legacy Orchestrator")
@@ -219,13 +253,21 @@ async def process_sample_document(request: ProcessSampleRequest):
         logger.info(f"Processing sample: {sample_path.name}")
         
         # Initialize orchestrator based on configuration
-        # ORCHESTRATOR_TYPE: 'sequential' uses Agent Framework workflows, 'legacy' uses original orchestrator
+        # AGENT_SERVICE: 'foundry' uses Foundry Agent Service, 'agent-framework' uses Agent Framework SDK
+        # ORCHESTRATOR_TYPE: 'sequential' uses workflow, 'legacy' uses original orchestrator
         if ORCHESTRATOR_TYPE == 'sequential':
-            logger.info("Using Sequential Workflow Orchestrator (Agent Framework)")
-            orchestrator = SequentialWorkflowOrchestrator(
-                use_azure=request.use_azure, 
-                send_email=request.send_email
-            )
+            if AGENT_SERVICE == 'foundry' and SequentialWorkflowOrchestratorFoundry is not None:
+                logger.info("Using Sequential Workflow Orchestrator (Foundry Agent Service)")
+                orchestrator = SequentialWorkflowOrchestratorFoundry(
+                    use_azure=request.use_azure, 
+                    send_email=request.send_email
+                )
+            else:
+                logger.info("Using Sequential Workflow Orchestrator (Agent Framework)")
+                orchestrator = SequentialWorkflowOrchestrator(
+                    use_azure=request.use_azure, 
+                    send_email=request.send_email
+                )
             results = await orchestrator.process_grant_proposal_async(str(sample_path))
         else:
             logger.info("Using Legacy Orchestrator")

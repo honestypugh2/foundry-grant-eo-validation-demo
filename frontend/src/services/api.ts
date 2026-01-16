@@ -18,9 +18,11 @@ export interface AzureServiceStatus {
 
 export interface OrchestratorConfig {
   orchestrator_type: 'sequential' | 'legacy';
+  agent_service: 'agent-framework' | 'foundry';
   description: string;
   features: {
     agent_framework_workflows: boolean;
+    foundry_agent_service: boolean;
     azure_ai_search_hosted_tool: boolean;
     streaming_support: boolean;
   };

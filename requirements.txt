@@ -2,10 +2,11 @@
 streamlit>=1.28.0
 python-dotenv>=1.0.0
 
-# Azure AI Dependencies (use --pre flag for Agent Framework)
+# Azure AI Dependencies (use --pre flag for Agent Framework and Foundry SDK)
 # Install separately: pip install agent-framework-azure-ai --pre
+# For Foundry Agent Service: pip install azure-ai-projects --pre
 agent-framework>=1.0.0b251114
-azure-ai-projects>=1.0.0b1
+azure-ai-projects>=1.0.0b5
 azure-identity>=1.15.0
 azure-ai-inference>=1.0.0b1
 
