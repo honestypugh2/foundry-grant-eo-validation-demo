@@ -20,7 +20,7 @@ from azure.ai.projects.models import (
     AISearchIndexResource,
     AzureAISearchQueryType,
 )
-from azure.identity.aio import DefaultAzureCredential
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
 from .document_ingestion_agent import DocumentIngestionAgent
 from .risk_scoring_agent import RiskScoringAgent
@@ -164,15 +164,22 @@ Output Format:
             logger.info(f"✓ Document ingested: {metadata.get('word_count', 0)} words")
             
             # Create Foundry client for AI agent steps
+            # Use ChainedTokenCredential: AzureCliCredential for local dev, ManagedIdentityCredential for Azure
+            use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
+            if use_managed_identity:
+                credential = ManagedIdentityCredential()
+            else:
+                credential = AzureCliCredential()
+            
             async with (
-                DefaultAzureCredential() as credential,
+                credential,
                 AIProjectClient(endpoint=self.project_endpoint, credential=credential) as project_client,
                 project_client.get_openai_client() as openai_client,
             ):
                 # Step 2: Summarization using Foundry Agent
                 logger.info("Step 2: Summarization")
                 summary_agent = await project_client.agents.create_version(
-                    agent_name="SummarizationAgent",
+                    agent_name="SummarizationAgentFoundry",
                     definition=PromptAgentDefinition(
                         model=self.deployment_name,
                         instructions=self._build_summarization_instructions(),
@@ -231,7 +238,7 @@ Provide Executive Summary, Key Objectives, Budget Highlights, Timeline, Key Topi
                 search_tool = self._build_azure_ai_search_tool()
                 
                 compliance_agent = await project_client.agents.create_version(
-                    agent_name="ComplianceAgent",
+                    agent_name="ComplianceAgentFoundry",
                     definition=PromptAgentDefinition(
                         model=self.deployment_name,
                         instructions=self._build_compliance_instructions(),

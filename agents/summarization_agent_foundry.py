@@ -12,7 +12,7 @@ import asyncio
 from typing import Dict, Any, List
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition
-from azure.identity.aio import DefaultAzureCredential
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +80,15 @@ Output should include:
         
         try:
             # Create credentials and clients fresh to avoid pickle issues
+            # Use AzureCliCredential for local dev, ManagedIdentityCredential for Azure
+            use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
+            if use_managed_identity:
+                credential = ManagedIdentityCredential()
+            else:
+                credential = AzureCliCredential()
+            
             async with (
-                DefaultAzureCredential() as credential,
+                credential,
                 AIProjectClient(endpoint=self.project_endpoint, credential=credential) as project_client,
                 project_client.get_openai_client() as openai_client,
             ):
