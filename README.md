@@ -4,6 +4,37 @@
 
 ![React App - Upload & Analyze](images/reactapp_uploadanalyze.png)
 
+## ⚠️ Preview Features & SDK Versions
+
+This project uses **Azure AI Foundry Portal (preview)** and several **beta/preview SDK packages**. These features are under active development and may change before general availability.
+
+### Preview SDKs Used
+| Package | Version | Status |
+|---------|---------|--------|
+| `agent-framework` | 1.0.0b260114 | Beta |
+| `azure-ai-projects` | 2.0.0b3 | Beta |
+| `azure-ai-agents` | 1.2.0b5 | Beta |
+| `azure-search-documents` | 11.7.0b2 | Beta |
+| `azure-ai-inference` | 1.0.0b9 | Beta |
+| `openai` | 2.15.0 | Stable |
+
+### Installation Notes
+```bash
+# Preview packages require the --pre flag
+pip install agent-framework-azure-ai --pre
+pip install azure-ai-projects --pre
+
+# Or install all from requirements.txt
+pip install -r requirements.txt --pre
+```
+
+### Key Preview Features
+- **Azure AI Foundry Portal**: View and debug agents created with `azure-ai-projects` SDK
+- **Agent Framework**: Sequential workflow orchestration with event streaming
+- **Foundry Agent Service**: Server-side agent persistence and thread management
+
+> **Note**: Preview features may not be suitable for production workloads. Monitor the [Azure AI Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/) for updates and breaking changes.
+
 More images can be found at [images directory](images/).
 
 > **📌 Note**: To use the Streamlit app, navigate to the project root directory before running `streamlit run app/streamlit_app_new.py`.
@@ -127,6 +158,72 @@ Currently, county departments submit grant proposals and related documents via e
 - Output evaluation and iterative refinement
 - Feedback loop for improved accuracy over time
 
+## Orchestrators
+
+This project includes **four orchestrator implementations** to coordinate the compliance validation workflow:
+
+### 1. **Original Orchestrator** ([agents/orchestrator.py](agents/orchestrator.py))
+- **Pattern**: Manual async coordination
+- **Structure**: Single class with async methods
+- **Best For**: Simple, straightforward workflows
+- **SDK Support**: Agent Framework only (`AGENT_SERVICE=agent-framework`)
+- **Usage**: Production-ready, battle-tested implementation
+
+### 2. **Sequential Workflow Orchestrator** ([agents/sequential_workflow_orchestrator.py](agents/sequential_workflow_orchestrator.py))
+- **Pattern**: Agent Framework Sequential Workflow
+- **Structure**: Separate Executor classes for each step
+- **Best For**: Complex, observable, extensible workflows
+- **Key Benefits**:
+  - 🎯 Clear separation of concerns (one executor = one responsibility)
+  - 🔧 Flexible pipeline configuration via edge connections
+  - 👀 Real-time event streaming for monitoring
+  - 🚨 Better error handling with executor-level events
+  - ♻️ Reusable components across workflows
+  - 📈 Scalable architecture for easy extension
+
+### 3. **Foundry Orchestrator** ([agents/sequential_workflow_orchestrator_foundry.py](agents/sequential_workflow_orchestrator_foundry.py)) ✨ NEW
+- **Pattern**: Azure AI Projects SDK (`azure-ai-projects`)
+- **Structure**: Agents created in Azure AI Foundry
+- **Best For**: Foundry portal integration, debugging agents
+- **Key Benefits**:
+  - 👁️ Agents visible in Azure AI Foundry portal
+  - 🔍 Inspect conversation threads for debugging
+  - ⚙️ Optional agent persistence (`PERSIST_FOUNDRY_AGENTS=true`)
+  - 🔗 Azure AI Search tool integration
+
+### 4. **Standalone Foundry Agents**
+- [agents/compliance_agent_foundry.py](agents/compliance_agent_foundry.py)
+- [agents/summarization_agent_foundry.py](agents/summarization_agent_foundry.py)
+
+**Selecting an Orchestrator**:
+```bash
+# Use Agent Framework SDK (default)
+export AGENT_SERVICE=agent-framework
+
+# Use Azure AI Foundry Agent Service
+export AGENT_SERVICE=foundry
+```
+
+**Quick Comparison**:
+```python
+# Original Orchestrator
+from agents.orchestrator import AgentOrchestrator
+orchestrator = AgentOrchestrator(use_azure=True)
+results = orchestrator.process_grant_proposal("proposal.pdf")
+
+# Sequential Workflow Orchestrator
+from agents.sequential_workflow_orchestrator import SequentialWorkflowOrchestrator
+orchestrator = SequentialWorkflowOrchestrator(use_azure=True)
+results = orchestrator.process_grant_proposal("proposal.pdf")
+
+# Foundry Orchestrator
+from agents.sequential_workflow_orchestrator_foundry import SequentialWorkflowOrchestratorFoundry
+orchestrator = SequentialWorkflowOrchestratorFoundry(use_azure=True)
+results = await orchestrator.process_grant_proposal_async("proposal.pdf")
+```
+
+📖 **See [docs/SequentialWorkflowOrchestrator.md](docs/SequentialWorkflowOrchestrator.md) for detailed documentation and comparison.**
+
 ## Scoring System
 
 The system uses three complementary scores to evaluate grant proposals and guide decision-making:
@@ -143,7 +240,8 @@ The system uses three complementary scores to evaluate grant proposals and guide
 
 ### 2. **Compliance Score** (0-100)
 - **Purpose**: Measures alignment with executive order requirements
-- **Source**: Currently uses confidence_score as a proxy; represents AI's assessment of compliance
+- **Source**: Calculated from ComplianceAgent's status and analysis findings
+- **Calculation**: Based on compliance status (compliant/requires_review/non_compliant) with adjustments for positive/negative indicators found in the analysis text
 - **Interpretation**:
   - **90-100** (Excellent): Fully compliant with all applicable executive orders
   - **70-89** (Good): Generally compliant with minor clarifications needed
@@ -360,9 +458,11 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 
 ## Getting Started
 
-### Quick Start (Recommended)
+> **⚠️ Infrastructure Required**: For full functionality with Azure AI services, you must deploy infrastructure first. See [Manual Setup with Azure Infrastructure](#manual-setup-with-azure-infrastructure) below. The Quick Start option uses **demo mode with local sample data only**.
 
-Get the application running in 3 steps:
+### Quick Start (Demo Mode Only)
+
+Get the demo application running with sample data in 3 steps. This mode uses local knowledge base files and does **not** require Azure infrastructure.
 
 #### 1. Clone the Repository
 
@@ -379,10 +479,14 @@ Create a `.env` file from the template:
 cp .env.example .env
 ```
 
-Update `.env` with your Azure credentials:
+Update `.env` for demo mode (minimal configuration):
 
 ```env
-# Azure AI Foundry
+# Demo Mode - Uses local sample data
+DEMO_MODE=true
+KNOWLEDGE_BASE_SOURCE=local
+
+# Azure AI Foundry (still required for LLM calls)
 AZURE_AI_FOUNDRY_PROJECT_ENDPOINT=your_foundry_project_endpoint_here
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
@@ -399,9 +503,19 @@ AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-region.cognitiveservices.azure
 AZURE_DOCUMENT_INTELLIGENCE_API_KEY=your_doc_intel_key_here
 
 # Authentication Method
-# Set to "false" for local development with API keys
-# Set to "true" for production with Managed Identity
-USE_MANAGED_IDENTITY=false
+# USE_MANAGED_IDENTITY depends on AGENT_SERVICE selection:
+#   - AGENT_SERVICE=agent-framework → USE_MANAGED_IDENTITY=true (recommended)
+#   - AGENT_SERVICE=foundry → USE_MANAGED_IDENTITY=false (required for local dev)
+USE_MANAGED_IDENTITY=true
+
+# Agent Service Selection
+# "agent-framework" - Agent Framework SDK (default, supports Managed Identity)
+# "foundry" - Azure AI Foundry Agent Service (requires API keys for local dev)
+AGENT_SERVICE=agent-framework
+
+# Foundry Agent Persistence (only when AGENT_SERVICE=foundry)
+# Set to "true" to keep agents visible in Foundry portal after runs
+PERSIST_FOUNDRY_AGENTS=false
 
 # Demo Configuration
 DEMO_MODE=true
@@ -436,9 +550,9 @@ This will:
 
 ---
 
-### Manual Setup (Alternative)
+### Manual Setup with Azure Infrastructure
 
-If you prefer manual control over each step:
+For full functionality with Azure AI Search, Document Intelligence, and Foundry Agent Service, follow these steps to deploy infrastructure first.
 
 #### 1. Clone the Repository
 
@@ -459,22 +573,72 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Alternative: Use pip
 # python -m venv .venv
 # source .venv/bin/activate
-# pip install -r requirements.txt
+# pip install -r requirements.txt --pre
 ```
 
 > **Note**: `uv` automatically creates a virtual environment and installs all dependencies from `pyproject.toml`.
 
-#### 3. Configure Environment
+#### 3. Deploy Azure Infrastructure
 
-Create a `.env` file from the template:
+Before configuring environment variables, deploy the required Azure resources:
+
+```bash
+# Using Azure Developer CLI (recommended)
+azd up
+
+# Or deploy infrastructure only
+azd provision
+```
+
+This deploys:
+- ✅ Azure AI Foundry with GPT-4
+- ✅ Azure Document Intelligence
+- ✅ Azure AI Search
+- ✅ Azure Storage Account
+
+📖 **See [docs/Deployment.md](docs/Deployment.md) for detailed deployment instructions and options.**
+
+#### 4. Configure Environment
+
+After infrastructure is deployed, create and configure your `.env` file:
 
 ```bash
 cp .env.example .env
 ```
 
-Then edit `.env` with your Azure credentials (see Quick Start section above for required variables).
+Update `.env` with your deployed Azure resource credentials (values from `azd` output or Azure Portal):
 
-#### 4. Start Backend and Frontend Manually
+```env
+# Production Mode - Uses Azure services
+DEMO_MODE=false
+KNOWLEDGE_BASE_SOURCE=azure
+
+# Azure AI Foundry
+AZURE_AI_FOUNDRY_PROJECT_ENDPOINT=https://your-deployed-foundry.services.ai.azure.com/api/projects/your-project
+AZURE_OPENAI_ENDPOINT=https://your-deployed-foundry.openai.azure.com/
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+
+# Azure AI Search (from deployed resources)
+AZURE_SEARCH_ENDPOINT=https://your-search-service.search.windows.net
+AZURE_SEARCH_INDEX_NAME=grant-compliance-index
+AZURE_SEARCH_API_KEY=your_search_api_key
+
+# Azure Document Intelligence (from deployed resources)
+AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=https://your-doc-intel.cognitiveservices.azure.com/
+
+# Authentication - depends on AGENT_SERVICE
+# Agent Framework: USE_MANAGED_IDENTITY=true (recommended)
+# Foundry Agent Service: USE_MANAGED_IDENTITY=false (required for local dev)
+USE_MANAGED_IDENTITY=true
+AGENT_SERVICE=agent-framework
+```
+
+#### 5. Start Backend and Frontend
+
+```bash
+./start.sh # Recommended
+```
 
 ```bash
 # Terminal 1 - Start Backend
@@ -548,7 +712,7 @@ cp /path/to/your/grant_proposal.pdf knowledge_base/sample_proposals/
 #   └── your_grant_proposal.pdf
 ```
 
-**Note**: In the demo mode, you can also upload PDFs directly through the Streamlit interface. For production deployment with Azure Document Intelligence, PDFs will be automatically processed for OCR and text extraction.
+**Note**: In the demo mode, you can also upload PDFs directly through the Application interface. For production deployment with Azure Document Intelligence, PDFs will be automatically processed for OCR and text extraction.
 
 #### PDF Document Processing
 
@@ -581,7 +745,7 @@ The application is now running! Access it at:
 - **FastAPI Backend**: http://localhost:8000/docs (API documentation)
 - **Streamlit Demo**: http://localhost:8501 (if running legacy demo)
 
-**Note**: If you used `./start.sh`, the React app should have opened automatically in your browser.
+**Note**: If you used `./start.sh`, the React app may have opened automatically in your browser.
 
 ## Demo Application
 
@@ -658,7 +822,7 @@ azd deploy         # Deploy applications
 ```
 
 This deploys:
-- ✅ Azure AI Foundry with GPT-4
+- ✅ Azure AI Foundry with GPT-4 (can be changed before deployment or after)
 - ✅ Azure Document Intelligence
 - ✅ Azure AI Search
 - ✅ Azure Storage Account
@@ -687,41 +851,42 @@ foundry-grant-eo-validation-demo/
 │   ├── requirements.txt           # Backend dependencies
 │   └── test_server.py             # Backend test utilities
 ├── app/
-│   ├── streamlit_app_new.py       # Streamlit demo (Primary)
-│   ├── streamlit_app.py           # Streamlit demo (Legacy)
+│   ├── streamlit_app.py           # Streamlit demo interface
 │   ├── components/                # Streamlit UI components
 │   ├── pages/                     # Streamlit multi-page sections
 │   ├── assets/                    # Static assets (images, CSS)
 │   └── utils/                     # Helper functions
-├── agents/                        # ⚠️ Note: Only compliance_agent.py and summarization_agent.py
-│   ├── __init__.py                #    use Azure AI Agent Framework. Others follow "agent" naming
-│   ├── orchestrator.py            #    convention but are traditional Python classes.
-│   ├── compliance_agent.py        # ✅ Azure AI Agent Framework - Compliance checking
-│   ├── document_ingestion_agent.py # Traditional class - Document processing
-│   ├── summarization_agent.py     # ✅ Azure AI Agent Framework - Summary generation
-│   ├── risk_scoring_agent.py      # Traditional class - Risk assessment
-│   ├── email_trigger_agent.py     # Traditional class - Email notification
+├── agents/                        # AI Agents & Orchestrators
+│   ├── __init__.py
+│   ├── orchestrator.py            # Original orchestrator (Agent Framework only)
+│   ├── sequential_workflow_orchestrator.py      # ✅ Agent Framework Sequential Workflow
+│   ├── sequential_workflow_orchestrator_foundry.py # ✅ Foundry Orchestrator (azure-ai-projects)
+│   ├── compliance_agent.py        # ✅ Agent Framework - Compliance checking
+│   ├── compliance_agent_foundry.py # ✅ Foundry Agent - Compliance checking
+│   ├── summarization_agent.py     # ✅ Agent Framework - Summary generation
+│   ├── summarization_agent_foundry.py # ✅ Foundry Agent - Summary generation
+│   ├── document_ingestion_agent.py # Document processing (traditional class)
+│   ├── risk_scoring_agent.py      # Risk assessment (traditional class)
+│   ├── email_trigger_agent.py     # Email notification (traditional class)
 │   └── config/                    # Agent configurations
+├── examples/
+│   └── document_ingestion_with_managed_identity.py # Managed Identity example
 ├── knowledge_base/
 │   ├── executive_orders/          # 📄 Executive order text files
-│   │   ├── EO_14008_Climate_Crisis.txt
-│   │   ├── EO_14028_Cybersecurity.txt
-│   │   └── EO_13985_Racial_Equity.txt
 │   ├── sample_executive_orders/   # 📄 Sample executive order PDFs
-│   │   └── *.pdf                  # Your PDF executive orders
 │   ├── grant_guidelines/          # Grant compliance rules
-│   │   └── *.txt, *.pdf           # Policy documents
 │   └── sample_proposals/          # 📄 Grant proposal PDFs for review
-│       └── *.pdf                  # Your grant proposals to review
 ├── functions/
 │   ├── document_processor/        # Azure Function for document ingestion
 │   ├── email_notifier/            # Azure Function for email notifications
 │   └── sharepoint_webhook_handler/ # Azure Function for SharePoint webhooks
+├── infra/                         # Infrastructure as Code
+│   ├── main.bicep                 # Primary Bicep template
+│   ├── main.parameters.json       # Deployment parameters
+│   ├── bicep/                     # Modular Bicep templates
+│   └── terraform/                 # Terraform alternative
 ├── config/
 │   └── search_index.json          # Azure AI Search index definition
-├── deployment/                    # Legacy deployment (deprecated)
-│   ├── main.bicep                 # Legacy infrastructure template
-│   └── parameters.json            # Legacy deployment parameters
 ├── docs/
 │   ├── Architecture.md            # Detailed architecture documentation
 │   ├── ComplianceWorkflowDiagram.md # Visual workflow diagram
@@ -729,11 +894,12 @@ foundry-grant-eo-validation-demo/
 │   ├── Deployment.md              # Deployment guide
 │   ├── DeploymentChecklist.md     # Pre-deployment checklist
 │   ├── EvaluationMethodology.md   # AI evaluation approach
+│   ├── ManagedIdentitySetup.md    # Managed Identity configuration
 │   ├── pdfGuide.md                # Working with PDF documents
 │   ├── pdfQuickReference.md       # PDF command reference
 │   ├── QuickDeploy.md             # Quick deployment guide
-│   ├── ReactQuickstart.md         # React app setup guide
 │   ├── ScoringSystem.md           # Confidence/compliance/risk scores
+│   ├── SequentialWorkflowOrchestrator.md # Orchestrator documentation
 │   ├── sharepointIntegration.md   # SharePoint integration guide
 │   ├── sharepointQuickstart.md    # SharePoint quick start
 │   ├── uploadPdfsToAzureSearch.md # PDF indexing guide
@@ -763,15 +929,18 @@ foundry-grant-eo-validation-demo/
 ├── data/
 │   ├── uploads/                   # Uploaded grant proposals
 │   └── docs_need_review/          # Documents queued for review
+├── workflows/                     # Workflow definitions (future use)
 ├── logs/                          # Application logs
 ├── images/                        # Screenshots and diagrams
 ├── .env.example                   # Environment variables template
+├── azure.yaml                     # Azure Developer CLI configuration
 ├── requirements.txt               # Python dependencies
 ├── pyproject.toml                 # Project configuration (uv/pip)
 ├── uv.lock                        # uv dependency lock file
 ├── start.sh                       # Start frontend & backend (Linux/Mac)
 ├── stop.sh                        # Stop services (Linux/Mac)
 ├── contributing.md                # Contribution guidelines
+├── CHANGELOG.md                   # Version history
 ├── LICENSE                        # MIT License
 └── README.md                      # This file
 ```

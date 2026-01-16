@@ -1,30 +1,32 @@
 """
-Summarization Agent
-Generates concise summaries of proposal sections and highlights key clauses.
+Summarization Agent using Azure AI Foundry Agent Service
+Uses azure-ai-projects SDK for intelligent summarization.
+
+This is an alternative implementation to summarization_agent.py which uses agent-framework.
+Set AGENT_SERVICE=foundry in .env to use this implementation.
 """
 
 import os
 import logging
 import asyncio
-from typing import Annotated, Dict, Any, List, Optional
-from agent_framework.azure import AzureAIProjectAgentProvider
-from azure.identity.aio import AzureCliCredential
+from typing import Dict, Any, List
+from azure.ai.projects.aio import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition
+from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
 
 logger = logging.getLogger(__name__)
 
 
-class SummarizationAgent:
+class SummarizationAgentFoundry:
     """
     Agent responsible for generating summaries of grant proposals.
-    Uses Azure AI Foundry Agent Framework for intelligent summarization.
+    Uses Azure AI Foundry Agent Service (azure-ai-projects SDK).
     """
     
     def __init__(
         self,
         project_endpoint: str,
         model_deployment_name: str,
-        use_managed_identity: bool = True,
-        api_key: Optional[str] = None,
     ):
         """
         Initialize the Summarization Agent.
@@ -32,16 +34,9 @@ class SummarizationAgent:
         Args:
             project_endpoint: Azure AI Foundry project endpoint
             model_deployment_name: Name of the deployed model
-            use_managed_identity: Whether to use Managed Identity for authentication
-            api_key: API key for Azure OpenAI (if not using managed identity)
         """
         self.project_endpoint = project_endpoint
         self.model_deployment_name = model_deployment_name
-        self.use_managed_identity = use_managed_identity
-        
-        # NOTE: Credentials are created fresh in each async method to avoid
-        # pickle errors with asyncio.Task objects when workflow framework
-        # serializes executor state between steps.
         
         # Agent instructions
         self.instructions = """You are an expert grant proposal analyst specializing in document summarization.
@@ -70,35 +65,6 @@ Output should include:
 - Key Clauses: Specific text that may require review
 """
 
-    def extract_document_info(
-        self,
-        metadata: Annotated[str, "JSON string containing document metadata like file_name, page_count, word_count"]
-    ) -> str:
-        """
-        Extract and format basic document information for context.
-        
-        This tool helps the agent understand the document's basic properties.
-        """
-        try:
-            import json
-            meta = json.loads(metadata)
-        except Exception:
-            meta = {}
-        
-        info = ["\n=== Document Information ==="]
-        info.append(f"File: {meta.get('file_name', 'Unknown')}")
-        info.append(f"Pages: {meta.get('page_count', 'N/A')}")
-        info.append(f"Word Count: {meta.get('word_count', 'N/A')}")
-        
-        if meta.get('deadline'):
-            info.append(f"Deadline: {meta['deadline']}")
-        if meta.get('budget_amount'):
-            info.append(f"Budget: {meta['budget_amount']}")
-        if meta.get('applicant'):
-            info.append(f"Applicant: {meta['applicant']}")
-        
-        return "\n".join(info)
-
     async def generate_summary(self, document_text: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Generate a comprehensive summary of the grant proposal.
@@ -110,35 +76,46 @@ Output should include:
         Returns:
             Dictionary containing executive summary and key highlights
         """
-        logger.info("Generating document summary")
+        logger.info("Generating document summary using Foundry Agent Service")
         
         try:
-            # Create credentials fresh to avoid pickle errors with asyncio.Task objects
-            # when workflow framework serializes executor state between steps
-            # Following official sample pattern:
-            # https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/agents/azure_ai/azure_ai_provider_methods.py
+            # Create credentials and clients fresh to avoid pickle issues
+            # Use AzureCliCredential for local dev, ManagedIdentityCredential for Azure
+            use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
+            if use_managed_identity:
+                credential = ManagedIdentityCredential()
+            else:
+                credential = AzureCliCredential()
+            
             async with (
-                AzureCliCredential() as credential,
-                AzureAIProjectAgentProvider(credential=credential) as provider,
+                credential,
+                AIProjectClient(endpoint=self.project_endpoint, credential=credential) as project_client,
+                project_client.get_openai_client() as openai_client,
             ):
-                agent = await provider.create_agent(
-                    name="SummarizationAgent",
-                    instructions=self.instructions,
+                # Create agent version
+                agent = await project_client.agents.create_version(
+                    agent_name="SummarizationAgentFoundry",
+                    definition=PromptAgentDefinition(
+                        model=self.model_deployment_name,
+                        instructions=self.instructions,
+                    ),
                     description="Summarization agent for grant proposals - generates concise summaries and extracts key clauses",
-                    tools=[self.extract_document_info],
                 )
-                # Build metadata JSON for the tool
-                import json
-                metadata_json = json.dumps(metadata)
+                logger.info(f"Agent created (id: {agent.id}, name: {agent.name}, version: {agent.version})")
                 
-                # Build summarization prompt
-                prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
+                try:
+                    # Build metadata context
+                    import json
+                    metadata_str = json.dumps(metadata, indent=2, default=str)
+                    
+                    # Build summarization prompt
+                    prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
 
 GRANT PROPOSAL TEXT:
 {document_text}
 
-DOCUMENT METADATA (use extract_document_info tool):
-{metadata_json}
+DOCUMENT METADATA:
+{metadata_str}
 
 Please provide:
 1. Executive Summary (3-4 sentences capturing the essence of the proposal)
@@ -158,27 +135,57 @@ Focus especially on identifying clauses related to:
 Structure your response clearly with section headers.
 """
 
-                # Get summary from agent
-                response_text = ""
-                async for chunk in agent.run_stream(prompt):
-                    if chunk.text:
-                        response_text += chunk.text
+                    # Create conversation and get response
+                    conversation = await openai_client.conversations.create()
+                    logger.info(f"Created conversation (id: {conversation.id})")
+                    
+                    try:
+                        # Stream response
+                        response_text = ""
+                        stream = await openai_client.responses.create(
+                            conversation=conversation.id,
+                            extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                            input=prompt,
+                            stream=True,
+                        )
+                        
+                        async for event in stream:
+                            if event.type == "response.output_text.delta":
+                                response_text += event.delta
+                        
+                        logger.info("Successfully generated summary using Foundry Agent Service")
+                        
+                    finally:
+                        # Clean up conversation
+                        await openai_client.conversations.delete(conversation_id=conversation.id)
+                        logger.info("Conversation deleted")
+                
+                finally:
+                    # Clean up agent (unless persistence is enabled)
+                    persist_agents = os.getenv("PERSIST_FOUNDRY_AGENTS", "false").lower() == "true"
+                    if not persist_agents:
+                        await project_client.agents.delete_version(
+                            agent_name=agent.name,
+                            agent_version=agent.version
+                        )
+                        logger.info("Agent deleted")
+                    else:
+                        logger.info(f"Agent persisted in Foundry portal: {agent.name} (version: {agent.version})")
             
             # Parse response into structured format
             summary_data = self._parse_summary_response(response_text)
             
             # Add metadata
             summary_data['metadata'] = {
-                'summary_method': 'agent_framework',
+                'summary_method': 'foundry_agent_service',
                 'original_word_count': metadata.get('word_count', 0),
                 'original_page_count': metadata.get('page_count', 0)
             }
             
-            logger.info("Successfully generated summary")
             return summary_data
             
         except Exception as e:
-            logger.error(f"Error generating summary: {str(e)}")
+            logger.error(f"Error generating summary with Foundry: {str(e)}")
             # Fallback to local generation
             logger.warning("Falling back to local summarization")
             return self._generate_locally(document_text, metadata)
@@ -297,25 +304,20 @@ Structure your response clearly with section headers.
     
     async def cleanup(self):
         """Clean up resources."""
-        # Provider and credentials are managed via async context manager in each method call
-        # No persistent resources to clean up
-        logger.info("SummarizationAgent cleaned up")
+        # All resources are managed via async context managers
+        logger.info("SummarizationAgentFoundry cleaned up")
 
 
 async def main():
-    """Example usage of the Summarization Agent."""
+    """Example usage of the Summarization Agent with Foundry."""
     from dotenv import load_dotenv
 
     load_dotenv()
 
     # Initialize agent
-    use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "true"
-    
-    agent = SummarizationAgent(
-        project_endpoint=os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT") or "",
-        model_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT") or "gpt-4o",
-        use_managed_identity=use_managed_identity,
-        api_key=None if use_managed_identity else os.getenv("AZURE_OPENAI_API_KEY"),
+    agent = SummarizationAgentFoundry(
+        project_endpoint=os.getenv("AZURE_AI_PROJECT_ENDPOINT", ""),
+        model_deployment_name=os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
     )
 
     # Example proposal
@@ -352,13 +354,14 @@ async def main():
     }
 
     # Generate summary
-    print("Generating summary...\n")
+    print("Generating summary using Foundry Agent Service...\n")
     result = await agent.generate_summary(sample_proposal, metadata)
 
     print("=== Summary Results ===")
     print(f"\nExecutive Summary:\n{result.get('executive_summary', 'N/A')}")
     print(f"\nKey Topics: {', '.join(result.get('key_topics', []))}")
     print(f"\nSummary Length: {result.get('summary_length', 0)} words")
+    print(f"\nMethod: {result.get('metadata', {}).get('summary_method', 'N/A')}")
     
     await agent.cleanup()
 

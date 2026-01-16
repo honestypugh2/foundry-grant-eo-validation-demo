@@ -53,6 +53,7 @@ output AZURE_OPENAI_ENDPOINT string = resources.outputs.openAIEndpoint
 output AZURE_OPENAI_DEPLOYMENT_NAME string = resources.outputs.openAIDeploymentName
 output AZURE_AI_FOUNDRY_RESOURCE_NAME string = resources.outputs.aiFoundryResourceName
 output AZURE_AI_PROJECT_NAME string = resources.outputs.aiProjectName
+output PROJECT_ENDPOINT string = resources.outputs.projectEndpoint
 output AZURE_AI_FOUNDRY_RESOURCE_ID string = resources.outputs.aiFoundryResourceId
 output AZURE_AI_FOUNDRY_PROJECT_ID string = resources.outputs.aiFoundryProjectId
 

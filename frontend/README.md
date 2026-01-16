@@ -5,10 +5,19 @@ React + TypeScript frontend for the Grant Proposal Compliance Automation system.
 ## Features
 
 - 📄 Document upload and processing
-- 📊 Interactive results dashboard
+- 📊 Interactive results dashboard with score explanations
 - 📚 Knowledge base explorer
 - ⚙️ Azure services configuration
 - 🎨 Modern UI with Tailwind CSS
+
+### Recent Updates (v2.0)
+
+- **Score Explanations**: Interactive tooltips explain what each score means
+- **Risk Score Breakdown**: Visual breakdown showing how risk is calculated from compliance, quality, and completeness
+- **Full Analysis View**: Expandable sections to view complete AI summarization output
+- **Assessment Certainty**: New metric showing how definitive the risk classification is
+- **Improved Executive Order Display**: Shows EO numbers and sources instead of relevance percentages
+- **Confidence Score Clarity**: Clear distinction between AI confidence (certainty) and compliance score (alignment)
 
 ## Prerequisites
 
@@ -114,12 +123,25 @@ For more information: [Microsoft Security Blog - CVE-2025-55182](https://msrc.mi
 
 The frontend connects to Azure services through the FastAPI backend:
 
-- Azure AI Foundry, Agent Framework - Agent orchestration
-- Azure OpenAI - LLM analysis
-- Azure AI Search - Semantic search
-- Azure Document Intelligence - OCR processing
+- **Azure AI Foundry / Agent Framework** - Agent orchestration (configurable via `AGENT_SERVICE`)
+- **Azure OpenAI** - LLM analysis for compliance and summarization
+- **Azure AI Search** - Semantic search for executive orders knowledge base
+- **Azure Document Intelligence** - OCR and document text extraction
 
 Toggle "Use Azure Services" in the sidebar to switch between Azure and demo mode.
+
+### Understanding the Scores
+
+The Results page displays several scores:
+
+| Score | Description | Source |
+|-------|-------------|--------|
+| **Confidence Score** | AI's certainty about its analysis (0-100) | Compliance Agent |
+| **Compliance Score** | How compliant the proposal is with executive orders (0-100) | Calculated from analysis status + findings |
+| **Risk Score** | Composite risk assessment (0-100) | Risk Scoring Agent |
+| **Assessment Certainty** | How definitive the risk classification is (0-100) | Risk Scoring Agent |
+
+See [docs/ScoringSystem.md](../docs/ScoringSystem.md) for complete scoring documentation.
 
 ## Building for Production
 

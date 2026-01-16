@@ -42,7 +42,6 @@ class AgentOrchestrator:
         # Initialize configuration from environment
         project_endpoint = os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT", "")
         deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
-        search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT", "")
         search_index = os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX", "grant-compliance-index")
         
         # Initialize SummarizationAgent with Agent Framework
@@ -53,28 +52,15 @@ class AgentOrchestrator:
             api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
         )
         
-        if use_azure and search_endpoint:
-            # For Azure services with API keys (local development and most deployments)
-            self.compliance_agent = ComplianceAgent(
-                project_endpoint=project_endpoint,
-                model_deployment_name=deployment_name,
-                search_endpoint=search_endpoint,
-                search_index_name=search_index,
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "10000")),
-                use_managed_identity=use_managed_identity,
-                search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-            )
-        else:
-            # For local development without Azure Search, use environment variables with API keys
-            self.compliance_agent = ComplianceAgent(
-                project_endpoint=project_endpoint,
-                model_deployment_name=deployment_name,
-                search_endpoint=search_endpoint,
-                search_index_name=search_index,
-                azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
-                use_managed_identity=False,
-                search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-            )
+        # ComplianceAgent now uses hosted Azure AI Search tool
+        # Requires AI_SEARCH_PROJECT_CONNECTION_ID to be configured in Azure AI Foundry project
+        self.compliance_agent = ComplianceAgent(
+            project_endpoint=project_endpoint,
+            model_deployment_name=deployment_name,
+            search_index_name=search_index,
+            search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),
+            search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
+        )
         
         self.risk_agent = RiskScoringAgent()
         self.email_agent = EmailTriggerAgent(use_graph_api=use_azure)
@@ -138,10 +124,20 @@ class AgentOrchestrator:
                 }
             )
             
+            # Calculate compliance_score based on status and findings
+            # compliance_score = HOW COMPLIANT the proposal is (0-100)
+            # confidence_score = AI's CERTAINTY about its analysis (0-100)
+            status = compliance_analysis['status'].lower().replace(' ', '_')
+            compliance_score = self._calculate_compliance_score_from_analysis(
+                status=status,
+                analysis_text=compliance_analysis['analysis'],
+                relevant_eos=compliance_analysis.get('relevant_executive_orders', [])
+            )
+            
             # Convert to format expected by risk scoring
             compliance_report = {
-                'compliance_score': compliance_analysis['confidence_score'],
-                'overall_status': compliance_analysis['status'].lower().replace(' ', '_'),
+                'compliance_score': compliance_score,
+                'overall_status': status,
                 'analysis': compliance_analysis['analysis'],
                 'confidence_score': compliance_analysis['confidence_score'],
                 'violations': [],
@@ -270,6 +266,85 @@ class AgentOrchestrator:
             return 'requires_review'
         else:
             return 'approved_with_conditions'
+
+    def _calculate_compliance_score_from_analysis(
+        self,
+        status: str,
+        analysis_text: str,
+        relevant_eos: list
+    ) -> float:
+        """
+        Calculate compliance score based on analysis status and findings.
+        
+        This calculates HOW COMPLIANT the proposal is (0-100), which is different
+        from confidence_score (how certain the AI is about its analysis).
+        
+        Args:
+            status: Compliance status ('compliant', 'non_compliant', 'requires_review')
+            analysis_text: Full analysis text from the compliance agent
+            relevant_eos: List of relevant executive orders found
+            
+        Returns:
+            Compliance score from 0-100
+        """
+        # Base score from status
+        if status == 'compliant':
+            base_score = 90.0
+        elif status == 'non_compliant':
+            base_score = 30.0
+        else:  # requires_review
+            base_score = 60.0
+        
+        text_lower = analysis_text.lower()
+        
+        # Adjust based on negative indicators in the analysis
+        negative_indicators = [
+            ('violation', -10),
+            ('non-compliant', -10),
+            ('concern', -5),
+            ('issue', -3),
+            ('risk', -3),
+            ('problem', -5),
+            ('fails to', -8),
+            ('does not comply', -10),
+            ('missing', -5),
+            ('lacks', -5),
+            ('dei', -5),  # DEI-related concerns
+            ('diversity', -3),
+            ('gender ideology', -5),
+        ]
+        
+        penalty = 0
+        for indicator, weight in negative_indicators:
+            # Count occurrences but cap impact
+            count = min(text_lower.count(indicator), 3)
+            penalty += count * weight
+        
+        # Adjust based on positive indicators
+        positive_indicators = [
+            ('compliant', 5),
+            ('meets requirements', 8),
+            ('aligns with', 5),
+            ('satisfies', 5),
+            ('complies with', 8),
+            ('no concerns', 10),
+            ('no issues', 8),
+        ]
+        
+        bonus = 0
+        for indicator, weight in positive_indicators:
+            if indicator in text_lower:
+                bonus += weight
+        
+        # Bonus for having relevant executive orders (shows thorough analysis)
+        if len(relevant_eos) >= 2:
+            bonus += 5
+        elif len(relevant_eos) == 0:
+            penalty -= 10  # No EOs found is concerning
+        
+        # Calculate final score with bounds
+        final_score = base_score + bonus + penalty
+        return max(0.0, min(100.0, final_score))
     
     def get_workflow_summary(self, workflow_results: Dict[str, Any]) -> str:
         """

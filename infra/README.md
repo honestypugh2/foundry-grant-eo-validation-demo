@@ -28,14 +28,16 @@ infra/
 
 ## 🏗️ Deployed Resources
 
+> **📝 Note**: This infrastructure has been updated to use the **new Microsoft Foundry (2025-04-01-preview API)**. Projects are deployed via IaC templates with the required `allowProjectManagement: true` property. See [NEW_FOUNDRY_MIGRATION.md](NEW_FOUNDRY_MIGRATION.md) for details.
+
 Both Bicep and Terraform templates deploy the following Azure resources:
 
 ### Core Azure Services
 
 | Service | Purpose | SKU/Configuration |
 |---------|---------|------------------|
-| **Azure AI Foundry Resource** | AI Foundry resource for managing projects and AI services | S0, AIServices kind with project management enabled |
-| **Azure AI Foundry Project** | Project within the Foundry resource for agent management | S0, System-assigned managed identity |
+| **Azure AI Foundry Resource** | AI Foundry resource with project management enabled | S0, AIServices kind, allowProjectManagement: true |
+| **Azure AI Foundry Project** | Project for organizing AI work, agents, and files | System-assigned managed identity, deployed via IaC |
 | **Azure OpenAI Deployment** | GPT-4o language model deployment | GlobalStandard SKU, 110K TPM, with RAI policies |
 | **Azure Document Intelligence** | Document processing and OCR extraction | S0, Form recognition + layout analysis |
 | **Azure AI Search** | Semantic search and retrieval | Basic tier with semantic search |
@@ -52,7 +54,7 @@ Both Bicep and Terraform templates deploy the following Azure resources:
 | Feature | Configuration |
 |---------|---------------|
 | **RAI Content Filtering** | Microsoft.DefaultV2 policy with Hate, Sexual, Violence, Selfharm, Jailbreak, and Protected Material filters |
-| **Storage Security** | Shared access key disabled, public network access disabled, TLS 1.2 minimum |
+| **Storage Security** | Shared access key disabled, public network access enabled (for demo), TLS 1.2 minimum |
 | **Network Security** | Azure Services bypass enabled, default action: Allow |
 | **Data Protection** | 7-day soft delete retention for blobs and containers |
 
@@ -122,6 +124,8 @@ azd provision
 - `personal-<name>` - Personal development (e.g., `personal-john`)
 
 **Note:** The deployment automatically detects your Azure user principal ID for RBAC role assignments. No need to run `azd init` - just `azd up`!
+
+**The project is automatically created via IaC** - no portal setup required!
 
 #### Deploy with Terraform
 ```bash

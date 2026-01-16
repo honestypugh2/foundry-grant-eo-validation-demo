@@ -34,7 +34,6 @@ try:
     # Document Intelligence is optional
     try:
         from azure.ai.documentintelligence import DocumentIntelligenceClient
-        from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
         DOCINT_AVAILABLE = True
     except ImportError:
         DocumentIntelligenceClient = None
@@ -56,7 +55,7 @@ class KnowledgeBaseIndexer:
         self.search_endpoint = os.getenv("AZURE_SEARCH_ENDPOINT")
         self.search_index = os.getenv("AZURE_SEARCH_INDEX_NAME", "grant-compliance-index")
         self.doc_intel_endpoint = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
-        self.use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "true"
+        self.use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "false"
         
         # Validate required environment variables
         if not self.search_endpoint:
@@ -86,7 +85,7 @@ class KnowledgeBaseIndexer:
                     raise ValueError("Managed Identity failed and no AZURE_SEARCH_API_KEY provided")
         else:
             if not search_key:
-                raise ValueError("AZURE_SEARCH_API_KEY environment variable is required when not using managed identity")
+                raise ValueError("AZURE_SEARCH_API_KEY environment variable iIs required when not using managed identity")
             self.search_credential = AzureKeyCredential(search_key)
             self.credential = AzureKeyCredential(doc_intel_key) if doc_intel_key else None
         
