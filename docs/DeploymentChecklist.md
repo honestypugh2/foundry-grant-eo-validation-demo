@@ -60,22 +60,6 @@ Choose your deployment method:
     --parameters @main.parameters.json
   ```
 
-### Option C: Terraform
-
-- [ ] **Configure**
-  ```bash
-  cd infra/terraform
-  cp terraform.tfvars.example terraform.tfvars
-  ```
-  - [ ] Edit `terraform.tfvars` with your values
-
-- [ ] **Deploy**
-  ```bash
-  terraform init
-  terraform plan
-  terraform apply
-  ```
-
 ## Post-Deployment Configuration 🔧
 
 - [ ] **Environment Variables**

@@ -1,6 +1,6 @@
 # Infrastructure Deployment Guide
 
-This directory contains Infrastructure as Code (IaC) templates for deploying the Grant EO Validation Demo using either **Bicep** or **Terraform**, managed by **Azure Developer CLI (azd)**.
+This directory contains Infrastructure as Code (IaC) templates for deploying the Grant EO Validation Demo using **Bicep**, managed by **Azure Developer CLI (azd)**.
 
 > **📝 Note**: These templates have been updated based on the actual deployed resources from the original demo (`main_fromorigdemo.bicep`). Key updates include:
 > - RAI (Responsible AI) content filtering policies (Microsoft.Default and Microsoft.DefaultV2)
@@ -15,12 +15,6 @@ infra/
 ├── bicep/                      # Bicep templates
 │   ├── main.bicep             # Main resource definitions
 │   └── abbreviations.json     # Resource naming abbreviations
-├── terraform/                  # Terraform templates
-│   ├── main.tf                # Main resource definitions
-│   ├── variables.tf           # Input variables
-│   ├── outputs.tf             # Output values
-│   ├── providers.tf           # Provider configuration
-│   └── terraform.tfvars.example  # Example variable values
 ├── main.bicep                 # Subscription-level Bicep entry point
 ├── main.parameters.json       # Bicep parameters (uses azd variables)
 └── README.md                  # This file
@@ -30,7 +24,7 @@ infra/
 
 > **📝 Note**: This infrastructure has been updated to use the **new Microsoft Foundry (2025-04-01-preview API)**. Projects are deployed via IaC templates with the required `allowProjectManagement: true` property. See [NEW_FOUNDRY_MIGRATION.md](NEW_FOUNDRY_MIGRATION.md) for details.
 
-Both Bicep and Terraform templates deploy the following Azure resources:
+The Bicep templates deploy the following Azure resources:
 
 ### Core Azure Services
 
@@ -127,15 +121,6 @@ azd provision
 
 **The project is automatically created via IaC** - no portal setup required!
 
-#### Deploy with Terraform
-```bash
-# Initialize with Terraform provider
-azd config set infra.provider terraform
-
-# Provision infrastructure
-azd provision
-```
-
 #### Useful azd Commands
 ```bash
 # Deploy application code only (after infrastructure exists)
@@ -196,52 +181,6 @@ az deployment sub show \
 
 ---
 
-### Option 3: Terraform
-
-#### Prerequisites
-```bash
-# Terraform must be installed
-terraform --version
-
-# Azure CLI login (Terraform uses Azure CLI credentials)
-az login
-```
-
-#### Deploy
-```bash
-cd infra/terraform
-
-# Copy example variables
-cp terraform.tfvars.example terraform.tfvars
-
-# Edit terraform.tfvars with your values
-nano terraform.tfvars
-
-# Get your principal ID
-PRINCIPAL_ID=$(az ad signed-in-user show --query id -o tsv)
-echo "principal_id = \"$PRINCIPAL_ID\"" >> terraform.tfvars
-
-# Initialize Terraform
-terraform init
-
-# Preview changes
-terraform plan
-
-# Apply infrastructure
-terraform apply
-```
-
-#### View Outputs
-```bash
-# Show all outputs
-terraform output
-
-# Get .env file content
-terraform output -raw env_file_content > ../../.env
-```
-
----
-
 ## 🔧 Post-Deployment Configuration
 
 After deploying infrastructure, complete these steps:
@@ -252,12 +191,6 @@ After deploying infrastructure, complete these steps:
 ```bash
 # Environment variables are automatically set
 azd env get-values > .env
-```
-
-**If using Terraform:**
-```bash
-cd infra/terraform
-terraform output -raw env_file_content > ../../.env
 ```
 
 **If using Bicep:**
@@ -334,15 +267,6 @@ azd provision
 azd deploy
 ```
 
-### Using Terraform
-```bash
-cd infra/terraform
-
-# Modify *.tf files as needed
-terraform plan
-terraform apply
-```
-
 ### Using Bicep
 ```bash
 cd infra
@@ -365,12 +289,6 @@ azd down
 
 # Delete resources but keep azd environment
 azd down --no-purge
-```
-
-### Using Terraform
-```bash
-cd infra/terraform
-terraform destroy
 ```
 
 ### Using Azure CLI
@@ -428,7 +346,6 @@ See [Production Readiness Checklist](../README.md#%EF%B8%8F-important-demonstrat
 
 - [Azure Developer CLI Documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 - [Bicep Documentation](https://learn.microsoft.com/azure/azure-resource-manager/bicep/)
-- [Terraform Azure Provider](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)
 - [Azure AI Foundry Documentation](https://learn.microsoft.com/azure/ai-studio/)
 - [Azure Architecture Center](https://learn.microsoft.com/azure/architecture/)
 
@@ -447,12 +364,6 @@ azd provision
 ```bash
 # Ensure you have Owner or User Access Administrator role
 az role assignment list --assignee $(az ad signed-in-user show --query id -o tsv) --all
-```
-
-### Issue: Terraform state locked
-```bash
-cd infra/terraform
-terraform force-unlock <lock-id>
 ```
 
 ### Issue: OpenAI deployment quota exceeded

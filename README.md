@@ -831,10 +831,9 @@ This deploys:
 
 **Alternative deployment methods:**
 - **Bicep**: `az deployment sub create --template-file infra/main.bicep`
-- **Terraform**: `cd infra/terraform && terraform apply`
 
 **Detailed deployment instructions:**
-- 📖 [Infrastructure Deployment Guide](infra/README.md) - Complete azd/Bicep/Terraform guide
+- 📖 [Infrastructure Deployment Guide](infra/README.md) - Complete azd/Bicep guide
 - 📖 [Deployment Documentation](docs/Deployment.md) - Additional deployment scenarios
 
 ## Project Structure
@@ -885,8 +884,7 @@ foundry-grant-eo-validation-demo/
 ├── infra/                         # Infrastructure as Code
 │   ├── main.bicep                 # Primary Bicep template
 │   ├── main.parameters.json       # Deployment parameters
-│   ├── bicep/                     # Modular Bicep templates
-│   └── terraform/                 # Terraform alternative
+│   └── bicep/                     # Modular Bicep templates
 ├── config/
 │   └── search_index.json          # Azure AI Search index definition
 ├── docs/

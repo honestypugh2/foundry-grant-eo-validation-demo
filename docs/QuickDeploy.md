@@ -133,16 +133,7 @@ az role assignment create \
 
 ## Alternative: Manual Deployment
 
-If you prefer Terraform or Bicep without azd:
-
-**Terraform:**
-```bash
-cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars
-terraform init
-terraform apply
-```
+If you prefer Bicep without azd:
 
 **Bicep:**
 ```bash
