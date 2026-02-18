@@ -154,7 +154,7 @@ def test_risk_scoring_agent():
             print("-" * 70)
             print(f"Overall Score: {result['overall_score']:.1f}%")
             print(f"Risk Level: {result['risk_level'].upper()}")
-            print(f"Confidence: {result['confidence']:.1f}%")
+            print(f"Assessment Certainty: {result['assessment_certainty']:.1f}%")
             print(f"Notification Required: {'YES' if result['requires_notification'] else 'NO'}")
             
             print("\n" + "-" * 70)

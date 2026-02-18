@@ -28,7 +28,6 @@ async def test_compliance_agent():
     required_vars = [
         ('AZURE_AI_FOUNDRY_PROJECT_ENDPOINT', 'AZURE_AI_PROJECT_ENDPOINT'),
         ('AZURE_OPENAI_DEPLOYMENT_NAME', 'AZURE_OPENAI_DEPLOYMENT'),
-        'AZURE_SEARCH_ENDPOINT',
         ('AZURE_SEARCH_INDEX_NAME', 'AZURE_SEARCH_INDEX')
     ]
     
@@ -48,35 +47,25 @@ async def test_compliance_agent():
     
     # Initialize agent
     print("\n1. Initializing ComplianceAgent...")
-    use_managed_identity = os.getenv('USE_MANAGED_IDENTITY', 'false').lower() == 'true'
     
     # Get environment variables with fallbacks
     project_endpoint = os.getenv('AZURE_AI_FOUNDRY_PROJECT_ENDPOINT') or os.getenv('AZURE_AI_PROJECT_ENDPOINT', '')
     deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME') or os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4')
-    search_endpoint = os.getenv('AZURE_SEARCH_ENDPOINT', '')
     search_index = os.getenv('AZURE_SEARCH_INDEX_NAME') or os.getenv('AZURE_SEARCH_INDEX', 'grant-compliance-index')
+    search_connection_id = os.getenv('AI_SEARCH_PROJECT_CONNECTION_ID', '')
+    search_query_type = os.getenv('AI_SEARCH_QUERY_TYPE', 'simple')
     
-    if use_managed_identity:
-        print("   Using Managed Identity authentication")
-        agent = ComplianceAgent(
-            project_endpoint=project_endpoint,
-            model_deployment_name=deployment_name,
-            search_endpoint=search_endpoint,
-            search_index_name=search_index,
-            azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
-            use_managed_identity=True
-        )
-    else:
-        print("   Using API Key authentication")
-        agent = ComplianceAgent(
-            project_endpoint=project_endpoint,
-            model_deployment_name=deployment_name,
-            search_endpoint=search_endpoint,
-            search_index_name=search_index,
-            azure_search_document_truncation_size=int(os.getenv("AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE", "1000")),
-            use_managed_identity=False,
-            search_api_key=os.getenv('AZURE_SEARCH_API_KEY')
-        )
+    print(f"   Project Endpoint: {project_endpoint[:50]}..." if project_endpoint else "   Project Endpoint: Not set")
+    print(f"   Model Deployment: {deployment_name}")
+    print(f"   Search Index: {search_index}")
+    
+    agent = ComplianceAgent(
+        project_endpoint=project_endpoint,
+        model_deployment_name=deployment_name,
+        search_index_name=search_index,
+        search_connection_id=search_connection_id,
+        search_query_type=search_query_type
+    )
     print("   ✅ Agent initialized successfully")
     
     # Test scenarios

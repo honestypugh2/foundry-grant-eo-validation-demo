@@ -187,6 +187,8 @@ Structure your response clearly with section headers.
         """
         Parse the agent's response into structured data.
         
+        Handles both plain text and markdown-formatted sections (e.g., **Key Clauses:**).
+        
         Args:
             text: Raw response text from the agent
             
@@ -196,48 +198,62 @@ Structure your response clearly with section headers.
         import re
         
         # Extract sections using regex patterns
+        # Uses .*? after header name to handle markdown like **Key Clauses:**
         def extract_section(pattern: str, text: str) -> str:
             match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
             return match.group(1).strip() if match else ""
         
+        # Extract key clauses - matches **Key Clauses:** or Key Clauses:
+        clauses_text = extract_section(
+            r'Key Clauses.*?\n(.+?)(?=\n\n|$)',
+            text
+        )
+        
+        # Also extract "Potential Compliance Risk Clauses" section
+        risk_clauses_text = extract_section(
+            r'Potential Compliance Risk Clauses.*?\n(.+?)(?=\n\n|$)',
+            text
+        )
+        
+        # Parse key clauses from the extracted text
+        key_clauses = self._parse_clause_bullets(clauses_text)
+        
+        # Add risk clauses if found
+        if risk_clauses_text:
+            risk_clauses = self._parse_clause_bullets(risk_clauses_text)
+            key_clauses.extend(risk_clauses)
+        
+        # Extract key topics
+        topics_text = extract_section(
+            r'Key Topics.*?\n(.+?)(?=\n\n|$)',
+            text
+        )
+        topics = self._extract_topics(topics_text if topics_text else text)
+        
         # Extract executive summary
         exec_summary = extract_section(
-            r'(?:Executive Summary|Summary)[:\s]*\n(.+?)(?:\n\n|\n(?:Key Objectives|Budget|Timeline|Key Topics|Key Clauses))',
+            r'(?:Executive )?Summary.*?\n(.+?)(?=\n\n|$)',
             text
         )
         
         # Extract key objectives
         objectives_text = extract_section(
-            r'Key Objectives[:\s]*\n(.+?)(?:\n\n|\n(?:Budget|Timeline|Key Topics|Key Clauses))',
+            r'Key Objectives.*?\n(.+?)(?=\n\n|$)',
             text
         )
         objectives = [line.strip('- •*').strip() for line in objectives_text.split('\n') if line.strip()]
         
         # Extract budget highlights
         budget = extract_section(
-            r'Budget(?:\s+Highlights)?[:\s]*\n(.+?)(?:\n\n|\n(?:Timeline|Key Topics|Key Clauses))',
+            r'Budget(?:\s+Highlights)?.*?\n(.+?)(?=\n\n|$)',
             text
         )
         
         # Extract timeline
         timeline = extract_section(
-            r'Timeline(?:/Deliverables)?[:\s]*\n(.+?)(?:\n\n|\n(?:Key Topics|Key Clauses))',
+            r'Timeline(?:/Deliverables)?.*?\n(.+?)(?=\n\n|$)',
             text
         )
-        
-        # Extract key topics
-        topics_text = extract_section(
-            r'Key Topics[:\s]*\n(.+?)(?:\n\n|\nKey Clauses)',
-            text
-        )
-        topics = self._extract_topics(topics_text if topics_text else text)
-        
-        # Extract key clauses
-        clauses_text = extract_section(
-            r'Key Clauses[:\s]*\n(.+?)(?:\n\n|$)',
-            text
-        )
-        key_clauses = [line.strip('- •*"').strip() for line in clauses_text.split('\n') if line.strip() and len(line.strip()) > 20]
         
         return {
             'executive_summary': exec_summary if exec_summary else text[:500],
@@ -245,10 +261,55 @@ Structure your response clearly with section headers.
             'budget_highlights': budget,
             'timeline': timeline,
             'key_topics': topics,
-            'key_clauses': key_clauses[:5],
+            'key_clauses': key_clauses[:10],  # Allow more clauses
             'summary_length': len(text.split()),
             'detailed_analysis': text
         }
+    
+    def _parse_clause_bullets(self, text: str) -> list:
+        """
+        Parse bullet points from clause text, handling markdown formatting.
+        
+        Args:
+            text: Raw text containing clause bullet points
+            
+        Returns:
+            List of clause strings
+        """
+        import re
+        
+        if not text:
+            return []
+        
+        clauses = []
+        
+        # Split by newlines and process each line
+        for line in text.split('\n'):
+            line = line.strip()
+            if not line or len(line) < 20:
+                continue
+            
+            # Skip section dividers
+            if line.startswith('---'):
+                continue
+            
+            # Remove bullet markers and markdown
+            # Handle formats like: "- **Collaboration Requirement:** text"
+            cleaned = re.sub(r'^[-*•]\s*', '', line)  # Remove bullet
+            cleaned = cleaned.strip()
+            
+            # Extract the clause content (may include bold label)
+            # Handle **Label:** format - remove ** but keep label and colon
+            if cleaned and len(cleaned) > 20:
+                # Replace **text:** with "text:" (handles colon inside bold)
+                cleaned = re.sub(r'\*\*([^*:]+):\*\*', r'\1:', cleaned)
+                # Replace **text**: with "text:" (handles colon outside bold)
+                cleaned = re.sub(r'\*\*([^*]+)\*\*:', r'\1:', cleaned)
+                # Replace remaining **text** with just text
+                cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned)
+                clauses.append(cleaned)
+        
+        return clauses
     
     def _generate_locally(self, text: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Generate summary using simple text extraction."""

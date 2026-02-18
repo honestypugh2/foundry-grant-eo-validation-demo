@@ -206,14 +206,28 @@ class ComplianceValidationExecutor(Executor):
             relevant_eos=compliance_analysis.get('relevant_executive_orders', [])
         )
         
+        # Extract violations from the analysis
+        violations = self._extract_violations_from_analysis(
+            analysis_text=compliance_analysis['analysis'],
+            status=status,
+            relevant_eos=compliance_analysis.get('relevant_executive_orders', []),
+            compliance_score=compliance_score
+        )
+        
+        # Extract warnings from the analysis
+        warnings = self._extract_warnings_from_analysis(
+            analysis_text=compliance_analysis['analysis'],
+            status=status
+        )
+        
         # Convert to expected format
         compliance_report = {
             'compliance_score': compliance_score,
             'overall_status': status,
             'analysis': compliance_analysis['analysis'],
             'confidence_score': compliance_analysis['confidence_score'],
-            'violations': [],
-            'warnings': [],
+            'violations': violations,
+            'warnings': warnings,
             'relevant_executive_orders': compliance_analysis.get('relevant_executive_orders', []),
             'citations': compliance_analysis.get('citations', [])
         }
@@ -312,6 +326,214 @@ class ComplianceValidationExecutor(Executor):
         # Calculate final score with bounds
         final_score = base_score + bonus + penalty
         return max(0.0, min(100.0, final_score))
+
+    def _extract_violations_from_analysis(
+        self,
+        analysis_text: str,
+        status: str,
+        relevant_eos: list,
+        compliance_score: Optional[float] = None
+    ) -> list:
+        """
+        Extract compliance violations from the analysis text.
+        
+        Parses the AI analysis to identify specific compliance violations
+        and associates them with relevant executive orders. Handles both
+        structured output (Key Findings:, Concerns:) and inline mentions.
+        
+        Args:
+            analysis_text: Full analysis text from the compliance agent
+            status: Compliance status ('compliant', 'non_compliant', 'requires_review')
+            relevant_eos: List of relevant executive orders found
+            compliance_score: Optional compliance score to determine extraction threshold
+            
+        Returns:
+            List of violation dictionaries with message, executive_order, and requirement
+        """
+        import re
+        
+        violations = []
+        text_lower = analysis_text.lower()
+        
+        # Helper to get associated EO
+        def get_associated_eo(text_context: str = '') -> str:
+            if not relevant_eos:
+                return 'Unknown'
+            # Try to find an EO mentioned in the context
+            for eo in relevant_eos:
+                eo_name = eo.get('name', eo.get('eo_number', eo.get('number', '')))
+                if eo_name and str(eo_name) in text_context:
+                    return str(eo_name)
+            # Default to first EO
+            return relevant_eos[0].get('name', relevant_eos[0].get('eo_number', relevant_eos[0].get('number', 'Unknown')))
+        
+        # Helper to get requirement from EOs
+        def get_requirement() -> str:
+            for eo in relevant_eos:
+                if eo.get('key_requirements'):
+                    reqs = eo['key_requirements']
+                    return reqs[0] if reqs else ''
+            return ''
+        
+        # Extract violations if:
+        # 1. Status indicates non-compliance or review needed, OR
+        # 2. Compliance score is low (below 80), OR
+        # 3. Analysis text contains violation keywords
+        has_violation_keywords = any(kw in text_lower for kw in [
+            'violation', 'non-compliant', 'does not comply', 'fails to', 
+            'concern', 'issue', 'problem', 'dei', 'gender ideology',
+            'key findings', 'concerns'
+        ])
+        
+        # Skip only if status is compliant AND no violation keywords AND score is high
+        if status == 'compliant' and not has_violation_keywords:
+            if compliance_score is None or compliance_score >= 80:
+                return violations
+        
+        # === SECTION-BASED EXTRACTION ===
+        # Extract from "Key Findings:" section (bullet points)
+        key_findings_match = re.search(
+            r'(?:^|\n)\s*[-*]?\s*Key\s+Findings[:\s]*\n((?:[ \t]*[-*•]\s*[^\n]+\n?)+)',
+            analysis_text, re.IGNORECASE | re.MULTILINE
+        )
+        if key_findings_match:
+            findings_text = key_findings_match.group(1)
+            bullets = re.findall(r'[-*•]\s*([^\n]+)', findings_text)
+            for bullet in bullets:
+                bullet_clean = bullet.strip()
+                if bullet_clean and len(bullet_clean) > 10:
+                    violations.append({
+                        'message': f"Key Finding: {bullet_clean[:200]}",
+                        'executive_order': get_associated_eo(bullet_clean),
+                        'requirement': get_requirement(),
+                        'severity': 'high' if any(kw in bullet_clean.lower() for kw in ['violation', 'non-compliant', 'critical']) else 'medium'
+                    })
+        
+        # Extract from "Concerns:" section (bullet points)
+        concerns_match = re.search(
+            r'(?:^|\n)\s*[-*]?\s*Concerns[:\s]*\n((?:[ \t]*[-*•]\s*[^\n]+\n?)+)',
+            analysis_text, re.IGNORECASE | re.MULTILINE
+        )
+        if concerns_match:
+            concerns_text = concerns_match.group(1)
+            bullets = re.findall(r'[-*•]\s*([^\n]+)', concerns_text)
+            for bullet in bullets:
+                bullet_clean = bullet.strip()
+                if bullet_clean and len(bullet_clean) > 10:
+                    violations.append({
+                        'message': f"Concern: {bullet_clean[:200]}",
+                        'executive_order': get_associated_eo(bullet_clean),
+                        'requirement': get_requirement(),
+                        'severity': 'medium'
+                    })
+        
+        # === PATTERN-BASED EXTRACTION (for less structured text) ===
+        violation_patterns = [
+            (r'(?:violation|non-compliant|does not comply|fails to comply)[:\s]+([^.\n]+)', 'Compliance Violation'),
+            (r'(?:lacks|missing|absent)[:\s]+([^.\n]+(?:requirement|provision|clause))', 'Missing Requirement'),
+            (r'(?:DEI|diversity|equity|inclusion)[^.\n]*(?:violation|concern|issue)[^.\n]*', 'DEI-Related Concern'),
+            (r'(?:gender ideology|gender-related)[^.\n]*(?:violation|concern|issue)[^.\n]*', 'Gender Policy Concern'),
+            (r'(?:climate|environmental)[^.\n]*(?:violation|concern|non-compliant)[^.\n]*', 'Environmental Compliance'),
+            (r'(?:cybersecurity|security)[^.\n]*(?:violation|concern|issue|non-compliant)[^.\n]*', 'Cybersecurity Concern'),
+            # Additional patterns for finding issues
+            (r'(?:does not|doesn\'t|fails to|unable to)[:\s]+([^.\n]+)', 'Compliance Issue'),
+            (r'(?:inconsistent with|contradicts|conflicts with)[:\s]+([^.\n]+)', 'Policy Conflict'),
+        ]
+        
+        # Extract specific violations from text
+        for pattern, violation_type in violation_patterns:
+            matches = re.findall(pattern, analysis_text, re.IGNORECASE)
+            for match in matches:
+                message = match.strip() if isinstance(match, str) else str(match)
+                message = message[:200]
+                
+                # Skip if too short or generic
+                if len(message) < 10:
+                    continue
+                
+                violations.append({
+                    'message': f"{violation_type}: {message}",
+                    'executive_order': get_associated_eo(message),
+                    'requirement': get_requirement(),
+                    'severity': 'high' if 'violation' in violation_type.lower() else 'medium'
+                })
+        
+        # Check for general non-compliance indicators if no specific violations found
+        if not violations and status == 'non_compliant':
+            general_indicators = [
+                ('non-compliant', 'Proposal marked as non-compliant'),
+                ('does not comply', 'Proposal does not comply with requirements'),
+                ('fails to', 'Proposal fails to meet requirements'),
+                ('violation', 'Compliance violation identified'),
+            ]
+            
+            for indicator, message in general_indicators:
+                if indicator in text_lower:
+                    violations.append({
+                        'message': message,
+                        'executive_order': get_associated_eo(analysis_text),
+                        'requirement': get_requirement(),
+                        'severity': 'high'
+                    })
+                    break
+        
+        # Deduplicate violations by message content
+        seen_messages = set()
+        unique_violations = []
+        for v in violations:
+            # Normalize message for comparison
+            msg_key = re.sub(r'\s+', ' ', v['message'].lower()[:60])
+            if msg_key not in seen_messages:
+                seen_messages.add(msg_key)
+                unique_violations.append(v)
+        
+        return unique_violations[:10]
+
+    def _extract_warnings_from_analysis(
+        self,
+        analysis_text: str,
+        status: str
+    ) -> list:
+        """
+        Extract compliance warnings from the analysis text.
+        
+        Warnings are less severe than violations but still require attention.
+        
+        Args:
+            analysis_text: Full analysis text from the compliance agent
+            status: Compliance status
+            
+        Returns:
+            List of warning dictionaries
+        """
+        import re
+        
+        warnings = []
+        
+        warning_indicators = [
+            (r'(?:concern|caution|attention)[:\s]+([^.\n]+)', 'Requires Attention'),
+            (r'(?:recommend|suggest|should)[:\s]+([^.\n]+)', 'Recommendation'),
+            (r'(?:unclear|ambiguous|vague)[:\s]+([^.\n]+)', 'Clarification Needed'),
+            (r'(?:review|verify|confirm)[:\s]+([^.\n]+)', 'Review Required'),
+        ]
+        
+        for pattern, warning_type in warning_indicators:
+            matches = re.findall(pattern, analysis_text, re.IGNORECASE)
+            for match in matches[:2]:  # Limit per pattern
+                message = match.strip() if isinstance(match, str) else str(match)
+                warnings.append({
+                    'message': f"{warning_type}: {message[:150]}",
+                    'severity': 'medium'
+                })
+        
+        # Status-based warning
+        if status == 'requires_review' and not warnings:
+            warnings.append({
+                'message': 'Proposal requires manual review due to compliance complexity',
+                'severity': 'medium'
+            })
+        
+        return warnings[:5]  # Limit to 5 warnings
 
 
 class RiskScoringExecutor(Executor):

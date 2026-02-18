@@ -276,26 +276,39 @@ Render citations as: `[message_idx:search_idx†source]`
         """
         Extract confidence score from analysis text.
         
-        Handles multiple AI output formats:
-        - Inline: "Confidence Score: 85"
-        - Markdown: "### Confidence Score:\n- **85**"
+        CONFIDENCE SCORE (0-100):
+        - Measures how certain the AI is about its compliance analysis
+        - Higher score = more reliable AI recommendations
+        
+        Score Ranges:
+        - 90-100: Very high confidence - AI is very certain
+        - 70-89: High confidence - Generally reliable
+        - 50-69: Moderate confidence - Manual review strongly recommended
+        - <50: Low confidence - Immediate human expert review required
+        
+        Impact:
+        - Low confidence (<60%) increases risk score
+        - Used to determine priority of attorney review
+        - Indicates reliability of AI analysis
+        
+        See docs/SCORING_SYSTEM.md for complete documentation.
         """
         # Try multiple patterns to handle different AI output formats
         # Pattern 1: "Confidence Score: 85" (inline)
         match = re.search(r"confidence\s*score[:\s]*(\d+)", text, re.IGNORECASE)
         if match:
-            return min(100, max(0, int(match.group(1))))
+            return int(match.group(1))
         
         # Pattern 2: Markdown format with newline and bold
         # "### Confidence Score:\n- **85**" or "Confidence Score:\n- **85**"
         match = re.search(r"confidence\s*score[:\s]*\n[-*\s]*\**(\d+)\**", text, re.IGNORECASE)
         if match:
-            return min(100, max(0, int(match.group(1))))
+            return int(match.group(1))
         
-        # Pattern 3: Just look for a number after "confidence score" within next chars
+        # Pattern 3: Just look for a number after "confidence score" within next 50 chars
         match = re.search(r"confidence\s*score[:\s\n\-*]*(\d+)", text, re.IGNORECASE)
         if match:
-            return min(100, max(0, int(match.group(1))))
+            return int(match.group(1))
         
         return 70  # Default confidence if not found
 
@@ -310,28 +323,110 @@ Render citations as: `[message_idx:search_idx†source]`
             return "Requires Review"
     
     def _extract_relevant_executive_orders(self, text: str) -> list:
-        """Extract relevant executive orders from analysis text."""
-        executive_orders = []
+        """
+        Extract relevant executive orders from analysis text.
         
+        Handles both structured output (Relevant Executive Orders: section)
+        and inline mentions of EO numbers.
+        """
+        executive_orders = []
+        seen_eos = set()  # Track seen EO numbers to avoid duplicates
+        
+        # === SECTION-BASED EXTRACTION ===
+        # Look for "Relevant Executive Orders:" section with bullet points
+        eo_section_match = re.search(
+            r'(?:^|\n)\s*[-*]?\s*Relevant\s+Executive\s+Orders[:\s]*\n((?:[ \t]*[-*•]\s*[^\n]+\n?)+)',
+            text, re.IGNORECASE | re.MULTILINE
+        )
+        
+        if eo_section_match:
+            section_text = eo_section_match.group(1)
+            # Extract each bullet point
+            bullets = re.findall(r'[-*•]\s*([^\n]+)', section_text)
+            for bullet in bullets:
+                bullet_clean = bullet.strip()
+                if not bullet_clean:
+                    continue
+                    
+                # Try to extract EO number from bullet
+                eo_num_match = re.search(r'(?:Executive Order|EO|E\.O\.)\s*#?(\d{4,5})', bullet_clean, re.IGNORECASE)
+                if eo_num_match:
+                    eo_num = eo_num_match.group(1)
+                    if eo_num in seen_eos:
+                        continue
+                    seen_eos.add(eo_num)
+                    
+                    # Extract title (text after EO number)
+                    title_match = re.search(rf'{eo_num}\s*[-–—:]\s*([^(\[]+)', bullet_clean)
+                    title = title_match.group(1).strip() if title_match else bullet_clean
+                    
+                    executive_orders.append({
+                        'name': f"EO {eo_num}",
+                        'number': eo_num,
+                        'title': title[:150],
+                        'relevance': 90.0,
+                        'key_requirements': [bullet_clean[:300]],
+                        'source': 'section_extraction'
+                    })
+                else:
+                    # Bullet without clear EO number - still valuable context
+                    # Try to extract any numeric reference
+                    any_num = re.search(r'(\d{4,5})', bullet_clean)
+                    if any_num:
+                        eo_num = any_num.group(1)
+                        if eo_num not in seen_eos:
+                            seen_eos.add(eo_num)
+                            executive_orders.append({
+                                'name': f"EO {eo_num}",
+                                'number': eo_num,
+                                'title': bullet_clean[:150],
+                                'relevance': 80.0,
+                                'key_requirements': [bullet_clean[:300]],
+                                'source': 'section_extraction'
+                            })
+        
+        # === PATTERN-BASED EXTRACTION (for inline mentions) ===
         # Pattern to match EO numbers (14151, 14173, etc.)
-        eo_pattern = r'(?:Executive Order|EO|E\.O\.)[\s#]*(\d{5})'
+        eo_pattern = r'(?:Executive Order|EO|E\.O\.)[\s#]*(\d{4,5})'
         matches = re.findall(eo_pattern, text, re.IGNORECASE)
         
         # Get unique EO numbers
-        unique_eos = list(set(matches))
+        unique_eos = [m for m in matches if m not in seen_eos]
         
         # For each EO number found, try to extract more context
         for eo_num in unique_eos:
-            # Try to find the full title/description
-            title_pattern = rf'(?:Executive Order|EO|E\.O\.)\s*#?{eo_num}[:\s,\-]*([^\n\[\]]+)'
-            title_match = re.search(title_pattern, text, re.IGNORECASE)
+            if eo_num in seen_eos:
+                continue
+            seen_eos.add(eo_num)
             
-            eo_entry = {
-                'eo_number': eo_num,
-                'title': title_match.group(1).strip()[:100] if title_match else f"Executive Order {eo_num}",
-                'source': 'azure_ai_search'
-            }
-            executive_orders.append(eo_entry)
+            # Look for the EO in context (get surrounding text)
+            eo_context_pattern = rf'(?:Executive Order|EO|E\.O\.)[\s#]*{eo_num}[^\n]*'
+            context_match = re.search(eo_context_pattern, text, re.IGNORECASE)
+            
+            context_text = context_match.group(0) if context_match else f"Executive Order {eo_num}"
+            
+            # Extract title if available (text after EO number, before date or section)
+            title_match = re.search(rf'{eo_num}[^\n]*?[\u2013\-–—:]\s*([^\n(\[]+)', text)
+            title = title_match.group(1).strip() if title_match else f"Executive Order {eo_num}"
+            
+            # Look for key requirements mentioned with this EO
+            key_reqs = []
+            # Search for text immediately following this EO mention
+            req_pattern = rf'(?:Executive Order|EO|E\.O\.)\s*#?{eo_num}[^.]*\.\s*([^.]+\.)'
+            req_match = re.search(req_pattern, text, re.IGNORECASE)
+            if req_match:
+                key_reqs.append(req_match.group(1).strip()[:300])
+            else:
+                key_reqs.append(context_text[:300])
+            
+            executive_orders.append({
+                'name': f"EO {eo_num}",
+                'number': eo_num,
+                'title': title[:150],
+                'relevance': 85.0,
+                'key_requirements': key_reqs,
+                'source': 'pattern_extraction'
+            })
         
         return executive_orders
 

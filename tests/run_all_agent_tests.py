@@ -45,7 +45,7 @@ def main():
     test_scripts = [
         ('test_document_ingestion_agent.py', 'Document Ingestion Agent'),
         ('test_summarization_agent.py', 'Summarization Agent'),
-        ('test_compliance_validator_agent.py', 'Compliance Validator Agent'),
+        ('test_compliance_agent.py', 'Compliance Agent'),
         ('test_risk_scoring_agent.py', 'Risk Scoring Agent'),
         ('test_email_notification.py', 'Email Trigger Agent'),
         ('test_orchestrator.py', 'Agent Orchestrator'),

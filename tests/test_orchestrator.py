@@ -141,7 +141,7 @@ appropriate program design and meaningful stakeholder participation.
             risk = result['risk_report']
             print(f"Risk Score: {risk['overall_score']:.1f}%")
             print(f"Risk Level: {risk['risk_level'].upper()}")
-            print(f"Confidence: {risk['confidence']:.1f}%")
+            print(f"Assessment Certainty: {risk['assessment_certainty']:.1f}%")
             print(f"Notification Required: {'YES' if risk['requires_notification'] else 'NO'}")
             
             # Compliance Report
