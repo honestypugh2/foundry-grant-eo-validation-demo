@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.37.4.10188",
-      "templateHash": "4845210671763392296"
+      "version": "0.42.1.51946",
+      "templateHash": "15801872694279369027"
     }
   },
   "parameters": {
@@ -210,8 +210,11 @@
     },
     "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
     "abbrs": "[variables('$fxv#0')]",
+    "azureAIUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '53ca6127-db72-4b80-b1b0-d745d6d5456d')]",
+    "azureAIDeveloperRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '64702f94-c441-49e6-a78b-ef80e0188fee')]",
     "cognitiveServicesOpenAIUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')]",
     "searchIndexDataContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')]",
+    "searchServiceContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')]",
     "storageBlobDataContributorRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]"
   },
   "resources": [
@@ -229,11 +232,14 @@
         "type": "SystemAssigned"
       },
       "properties": {
+        "customSubDomainName": "[format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))]",
         "allowProjectManagement": true,
-        "customSubDomainName": "[format('{0}-{1}-{2}', parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))]",
         "publicNetworkAccess": "Enabled",
         "networkAcls": {
-          "defaultAction": "Allow"
+          "defaultAction": "Allow",
+          "virtualNetworkRules": [],
+          "ipRules": [],
+          "bypass": "AzureServices"
         },
         "disableLocalAuth": false
       }
@@ -269,8 +275,7 @@
           "name": "[parameters('openAIDeploymentName')]",
           "version": "[parameters('openAIModelVersion')]"
         },
-        "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
-        "raiPolicyName": "Microsoft.DefaultV2"
+        "raiPolicyName": "Microsoft.Default"
       },
       "dependsOn": [
         "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
@@ -333,7 +338,7 @@
         "allowBlobPublicAccess": false,
         "allowSharedKeyAccess": false,
         "largeFileSharesState": "Enabled",
-        "publicNetworkAccess": "Disabled",
+        "publicNetworkAccess": "Enabled",
         "allowCrossTenantReplication": false,
         "defaultToOAuthAuthentication": false,
         "dnsEndpointType": "Standard",
@@ -460,7 +465,37 @@
       "condition": "[not(empty(parameters('principalId')))]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))), parameters('principalId'), variables('azureAIUserRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('azureAIUserRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]",
+      "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))), parameters('principalId'), variables('azureAIDeveloperRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('azureAIDeveloperRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')))]",
       "name": "[guid(resourceId('Microsoft.CognitiveServices/accounts', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName'))), parameters('principalId'), variables('cognitiveServicesOpenAIUserRole'))]",
       "properties": {
         "roleDefinitionId": "[variables('cognitiveServicesOpenAIUserRole')]",
@@ -475,7 +510,7 @@
       "condition": "[not(empty(parameters('principalId')))]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.Search/searchServices/{0}', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]",
+      "scope": "[resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]",
       "name": "[guid(resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))), parameters('principalId'), variables('searchIndexDataContributorRole'))]",
       "properties": {
         "roleDefinitionId": "[variables('searchIndexDataContributorRole')]",
@@ -490,7 +525,22 @@
       "condition": "[not(empty(parameters('principalId')))]",
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
-      "scope": "[format('Microsoft.Storage/storageAccounts/{0}', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]",
+      "scope": "[resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix'))), parameters('principalId'), variables('searchServiceContributorRole'))]",
+      "properties": {
+        "roleDefinitionId": "[variables('searchServiceContributorRole')]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "User"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Search/searchServices', format('{0}{1}-{2}-{3}', variables('abbrs').searchSearchServices, parameters('resourcePrefix'), parameters('environmentName'), variables('uniqueSuffix')))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('principalId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix')))]",
       "name": "[guid(resourceId('Microsoft.Storage/storageAccounts', format('{0}{1}{2}', variables('abbrs').storageStorageAccounts, replace(parameters('resourcePrefix'), '-', ''), variables('uniqueSuffix'))), parameters('principalId'), variables('storageBlobDataContributorRole'))]",
       "properties": {
         "roleDefinitionId": "[variables('storageBlobDataContributorRole')]",
@@ -518,6 +568,10 @@
     "aiProjectName": {
       "type": "string",
       "value": "[format('{0}-project-{1}', parameters('resourcePrefix'), parameters('environmentName'))]"
+    },
+    "projectEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts/projects', format('{0}{1}-{2}', variables('abbrs').cognitiveServicesAccounts, parameters('resourcePrefix'), parameters('environmentName')), format('{0}-project-{1}', parameters('resourcePrefix'), parameters('environmentName'))), '2025-06-01').endpoints['AI Foundry API']]"
     },
     "documentIntelligenceEndpoint": {
       "type": "string",

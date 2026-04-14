@@ -80,14 +80,18 @@ Legacy demo application kept as backup (uses mock data). Not for production use.
 
 ```
 streamlit_app.py
-    ├── AgentOrchestrator (src/agents/orchestrator.py)
-    │   ├── DocumentIngestionAgent (azure-ai-documentintelligence)
-    │   ├── SummarizationAgent (Azure AI Foundry)
-    │   ├── ComplianceAgent (Azure AI Search + OpenAI)
-    │   ├── RiskScoringAgent
-    │   └── EmailTriggerAgent
-    └── Async processing with asyncio.run()
+    ├── SequentialWorkflowOrchestrator (src/agents/sequential_workflow_orchestrator.py)
+    │   ├── DocumentIngestionExecutor (azure-ai-documentintelligence)
+    │   ├── SummarizationExecutor (Agent Framework @tool + FoundryChatClient)
+    │   ├── ComplianceExecutor (Agent Framework @tool + Azure AI Search)
+    │   ├── RiskScoringExecutor (RiskScoringAgent)
+    │   └── EmailNotificationExecutor (EmailTriggerAgent)
+    └── Async processing with SequentialBuilder event streaming
 ```
+
+> **Note**: The backend's `AGENT_SERVICE` setting selects the orchestrator implementation:
+> - `agent-framework` (default): Uses `SequentialWorkflowOrchestrator` with Agent Framework SDK v1.0.1
+> - `foundry`: Uses `SequentialWorkflowOrchestratorFoundry` with `azure-ai-projects` SDK
 
 ---
 

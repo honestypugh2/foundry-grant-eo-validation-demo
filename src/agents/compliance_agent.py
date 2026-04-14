@@ -5,11 +5,18 @@ This agent analyzes grant proposals for compliance with executive orders
 using Azure AI Foundry and Azure AI Search for knowledge base retrieval.
 """
 
+import json
+import logging
 import os
 from typing import Annotated, Optional, Dict, Any
-from agent_framework import CitationAnnotation, TextSpanRegion
-from agent_framework.azure import AzureAIProjectAgentProvider
-from azure.identity.aio import AzureCliCredential
+
+from agent_framework import Agent, Annotation, TextSpanRegion, tool
+from agent_framework.foundry import FoundryChatClient
+from azure.identity import AzureCliCredential
+from azure.search.documents import SearchClient
+from azure.core.credentials import AzureKeyCredential
+
+logger = logging.getLogger(__name__)
 
 
 class ComplianceAgent:
@@ -22,7 +29,8 @@ class ComplianceAgent:
         project_endpoint: str,
         model_deployment_name: str,
         search_index_name: str,
-        search_connection_id: Optional[str] = None,
+        search_endpoint: Optional[str] = None,
+        search_api_key: Optional[str] = None,
         search_query_type: str = "simple",
     ):
         """
@@ -32,25 +40,22 @@ class ComplianceAgent:
             project_endpoint: Azure AI Foundry project endpoint
             model_deployment_name: Name of the deployed model
             search_index_name: Name of the search index for executive orders
-            search_connection_id: Azure AI Search connection ID configured in the Foundry project
-                                  (from AI_SEARCH_PROJECT_CONNECTION_ID env var)
-            search_query_type: Query type for search (simple, semantic, or vector)
+            search_endpoint: Azure AI Search endpoint URL
+            search_api_key: Azure AI Search API key (if not using managed identity)
+            search_query_type: Query type for search (simple or semantic)
         """
         self.project_endpoint = project_endpoint
         self.model_deployment_name = model_deployment_name
         self.search_index_name = search_index_name
-        self.search_connection_id = search_connection_id or os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID", "")
+        self.search_endpoint = search_endpoint or os.getenv("AZURE_SEARCH_ENDPOINT", "")
+        self.search_api_key = search_api_key or os.getenv("AZURE_SEARCH_API_KEY")
         self.search_query_type = search_query_type
-        
-        # NOTE: Agent credentials are created fresh in analyze_proposal() to avoid
-        # pickle errors with asyncio.Task objects when workflow framework
-        # serializes executor state between steps.
 
-        # Agent instructions - updated to use hosted Azure AI Search tool
+        # Agent instructions
         self.instructions = """You are a legal compliance analyst specializing in grant proposal review.
 
-You have access to an Azure AI Search tool that searches a knowledge base of executive orders.
-You MUST always provide citations for answers using the tool and render them as: `[message_idx:search_idx†source]`.
+You have access to a search_executive_orders tool that searches a knowledge base of executive orders.
+You MUST use this tool to find relevant executive orders and cite the sources in your analysis.
 
 Your responsibilities:
 1. Analyze grant proposals for compliance with relevant executive orders against a knowledge base of executive orders
@@ -76,53 +81,59 @@ Output Format:
 - Recommendations: [Actions needed]
 """
 
-    def _build_azure_ai_search_tool(self) -> dict:
-        """
-        Build the Azure AI Search tool configuration for the agent.
-        
-        Uses the hosted Azure AI Search tool pattern from:
-        https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/agents/azure_ai/azure_ai_with_azure_ai_search.py
-        
-        Returns:
-            dict: Tool configuration for Azure AI Search
-        """
-        if not self.search_connection_id:
-            raise ValueError(
-                "search_connection_id is required. Set AI_SEARCH_PROJECT_CONNECTION_ID environment variable "
-                "or pass search_connection_id to the constructor. "
-                "Configure the Azure AI Search connection in your Azure AI Foundry project first."
-            )
-        
-        return {
-            "type": "azure_ai_search",
-            "azure_ai_search": {
-                "indexes": [
-                    {
-                        "project_connection_id": self.search_connection_id,
-                        "index_name": self.search_index_name,
-                        # query_type options: "simple", "semantic", or "vector"
-                        # For vector, ensure your index has a field with vectorized data
-                        "query_type": self.search_query_type,
-                    }
-                ]
-            },
-        }
-
-    def format_grant_context(
+    @tool(
+        name="search_executive_orders",
+        description="Search the knowledge base of executive orders for compliance requirements relevant to a grant proposal query.",
+    )
+    def search_executive_orders(
         self,
+        query: Annotated[str, "Search query describing the compliance topic or executive order to find"],
+    ) -> str:
+        """Search the executive orders knowledge base using Azure AI Search."""
+        if not self.search_endpoint:
+            return "Error: Azure AI Search endpoint not configured. Set AZURE_SEARCH_ENDPOINT."
+
+        if self.search_api_key:
+            credential = AzureKeyCredential(self.search_api_key)
+        else:
+            credential = AzureCliCredential()
+
+        client = SearchClient(
+            endpoint=self.search_endpoint,
+            index_name=self.search_index_name,
+            credential=credential,
+        )
+
+        results = client.search(
+            search_text=query,
+            query_type=self.search_query_type,
+            top=5,
+        )
+
+        output_parts = []
+        for i, result in enumerate(results, 1):
+            title = result.get("title", result.get("metadata_storage_name", "Unknown"))
+            content = result.get("content", result.get("chunk", ""))
+            score = result.get("@search.score", 0)
+            output_parts.append(f"[Result {i}] (score: {score:.2f})\nSource: {title}\n{content}\n")
+
+        if not output_parts:
+            return f"No results found for query: {query}"
+
+        return "\n---\n".join(output_parts)
+
+    @staticmethod
+    @tool(
+        name="format_grant_context",
+        description="Format pre-extracted grant proposal context (metadata, summary, document info) for analysis.",
+    )
+    def format_grant_context(
         context_data: Annotated[
             str, "JSON string containing pre-extracted metadata, summary, and document info"
         ],
     ) -> str:
-        """
-        Format pre-extracted grant proposal context for analysis.
-        
-        This tool formats metadata and context that was already extracted
-        during document ingestion, making it easier for the agent to reference.
-        Note: Document Intelligence processing already happened in document_ingestion_agent.
-        """
+        """Format pre-extracted grant proposal context for analysis."""
         try:
-            import json
             context = json.loads(context_data)
         except Exception:
             context = {}
@@ -188,21 +199,22 @@ Output Format:
         file_path = doc_info.get('file_path', '')
         page_number = doc_info.get('page_number', 1)
         
-        # Create citation with exact location information
-        citation = CitationAnnotation(
-            title=f"{doc_info.get('title', 'Executive Order')} (Page {page_number})",
-            url=file_path if file_path.startswith('http') else f"file://{file_path}#page={page_number}",
-            file_id=doc_info.get('id', ''),
-            tool_name="search_knowledge_base",
-            snippet=text_snippet,
-            annotated_regions=[text_region],
-            additional_properties={
+        # Create citation using Annotation TypedDict
+        citation: Annotation = {
+            "type": "citation",
+            "title": f"{doc_info.get('title', 'Executive Order')} (Page {page_number})",
+            "url": file_path if file_path.startswith('http') else f"file://{file_path}#page={page_number}",
+            "file_id": doc_info.get('id', ''),
+            "tool_name": "search_executive_orders",
+            "snippet": text_snippet,
+            "annotated_regions": [text_region],
+            "additional_properties": {
                 "executive_order_number": doc_info.get('exec_order_number', 'N/A'),
                 "effective_date": doc_info.get('date', 'N/A'),
                 "page_number": page_number,
                 "document_type": "Executive Order"
-            }
-        )
+            },
+        }
         
         return citation
 
@@ -240,43 +252,42 @@ Output Format:
             
         See docs/SCORING_SYSTEM.md for complete scoring documentation.
         """
-        # Create credentials fresh to avoid pickle errors with asyncio.Task objects
-        # when workflow framework serializes executor state between steps
-        # Following official sample pattern:
-        # https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/agents/azure_ai/azure_ai_with_azure_ai_search.py
-        async with (
-            AzureCliCredential() as credential,
-            AzureAIProjectAgentProvider(credential=credential) as provider,
-        ):
-            # Build tools list: hosted Azure AI Search + custom format tool
-            tools = [
-                self._build_azure_ai_search_tool(),  # Hosted Azure AI Search
-                self.format_grant_context,            # Custom tool for formatting context
-            ]
-            
-            agent = await provider.create_agent(
-                name="ComplianceAgent",
-                instructions=self.instructions,
-                description="Compliance agent for grant proposals - analyzes compliance with executive orders",
-                tools=tools,
-            )
-            # Build analysis prompt
-            import json
-            context_json = json.dumps(context) if context else "{}"
-            
-            prompt = f"""Analyze the following grant proposal for compliance with executive orders:
+        # Create agent with FoundryChatClient and function tools
+        client = FoundryChatClient(
+            project_endpoint=self.project_endpoint,
+            model=self.model_deployment_name,
+            credential=AzureCliCredential(),
+        )
+
+        # Build tools list: Azure AI Search function tool + context formatter
+        tools = [
+            self.search_executive_orders,   # Function tool for Azure AI Search
+            self.format_grant_context,       # Function tool for formatting context
+        ]
+
+        agent = Agent(
+            client=client,
+            name="ComplianceAgent",
+            instructions=self.instructions,
+            tools=tools,
+        )
+
+        # Build analysis prompt
+        context_json = json.dumps(context) if context else "{}"
+        
+        prompt = f"""Analyze the following grant proposal for compliance with executive orders:
 
 GRANT PROPOSAL:
 {proposal_text}
 
 """
-            if context:
-                prompt += f"\nADDITIONAL CONTEXT (use format_grant_context tool to view formatted):\n{context_json}\n"
+        if context:
+            prompt += f"\nADDITIONAL CONTEXT (use format_grant_context tool to view formatted):\n{context_json}\n"
 
-            prompt += """
+        prompt += """
 Please perform a thorough compliance analysis using the following steps:
 1. Use format_grant_context tool to review the pre-extracted document metadata and summary
-2. Use the azure_ai_search tool to find relevant executive orders in the knowledge base
+2. Use the search_executive_orders tool to find relevant executive orders in the knowledge base
 3. Identify applicable compliance requirements from the executive orders
 4. Assess the proposal against these requirements
 5. Provide a structured compliance summary with confidence score and proper citations
@@ -284,11 +295,11 @@ Please perform a thorough compliance analysis using the following steps:
 Note: Document metadata has already been extracted using Azure Document Intelligence during ingestion.
 """
 
-            # Get analysis from agent
-            response_text = ""
-            async for chunk in agent.run_stream(prompt):
-                if chunk.text:
-                    response_text += chunk.text
+        # Get analysis from agent via streaming
+        response_text = ""
+        async for chunk in agent.run(prompt, stream=True):
+            if chunk.text:
+                response_text += chunk.text
 
         # Parse response into structured format (outside the context manager)
         # Note: compliance_score is calculated by the orchestrators using
@@ -467,44 +478,28 @@ Note: Document metadata has already been extracted using Azure Document Intellig
         
         return executive_orders
 
-    async def _extract_citations_from_thread(self, agent: Any, thread: Any) -> list:
+    async def _extract_citations_from_response(self, response: Any) -> list:
         """
-        Extract citations from the agent's thread messages.
+        Extract citations from the agent's response messages.
         
-        The Agent Framework automatically creates citations when tools return document content.
-        This method attempts to retrieve them from the thread.
-        
-        Note: Citation extraction from the Agent Framework is not fully supported yet.
-        We return an empty list and rely on the search_knowledge_base tool results 
-        being referenced in the analysis text.
+        The Agent Framework may include citation annotations in response content.
+        This method attempts to retrieve them from the response.
         """
         citations_list = []
         
         try:
-            # Attempt 1: Check if thread has a messages attribute directly
-            if hasattr(thread, 'messages') and thread.messages:
-                for message in thread.messages:
-                    if hasattr(message, 'annotations') and message.annotations:
-                        for annotation in message.annotations:
-                            if isinstance(annotation, CitationAnnotation):
-                                citations_list.append(annotation)
-            
-            # Attempt 2: Check if thread has a method to get messages
-            elif hasattr(thread, 'get_messages'):
-                messages = await thread.get_messages()
-                for message in messages:
-                    if hasattr(message, 'annotations') and message.annotations:
-                        for annotation in message.annotations:
-                            if isinstance(annotation, CitationAnnotation):
-                                citations_list.append(annotation)
-                                
+            if hasattr(response, 'messages'):
+                for message in response.messages:
+                    if hasattr(message, 'contents'):
+                        for content in message.contents:
+                            if hasattr(content, 'annotations') and content.annotations:
+                                for annotation in content.annotations:
+                                    if isinstance(annotation, dict) and annotation.get('type') == 'citation':
+                                        citations_list.append(annotation)
         except Exception as e:
-            # Citation extraction failed - this is expected behavior
-            # The tool output is still visible in the analysis text
-            print(f"Info: Citation auto-extraction not available: {e}")
+            logger.info(f"Citation auto-extraction not available: {e}")
             return []
         
-        # Format citations for API response
         if citations_list:
             return self._format_citations(citations_list)
         
@@ -514,34 +509,41 @@ Note: Document metadata has already been extracted using Azure Document Intellig
         """
         Format citation annotations for frontend display.
         
-        Converts Agent Framework CitationAnnotation objects into
-        dictionaries with all relevant metadata including page numbers.
+        Converts Annotation TypedDicts into dictionaries with all
+        relevant metadata including page numbers.
         """
         formatted_citations = []
         
         for citation in citations:
-            # Convert CitationAnnotation to dictionary
             citation_dict = {
-                'title': citation.title if hasattr(citation, 'title') else 'Untitled',
-                'url': citation.url if hasattr(citation, 'url') else None,
-                'file_id': citation.file_id if hasattr(citation, 'file_id') else None,
-                'tool_name': citation.tool_name if hasattr(citation, 'tool_name') else None,
-                'snippet': citation.snippet if hasattr(citation, 'snippet') else None,
+                'title': citation.get('title', 'Untitled'),
+                'url': citation.get('url'),
+                'file_id': citation.get('file_id'),
+                'tool_name': citation.get('tool_name'),
+                'snippet': citation.get('snippet'),
                 'annotated_regions': [],
                 'additional_properties': {}
             }
             
             # Extract annotated regions (text spans)
-            if hasattr(citation, 'annotated_regions') and citation.annotated_regions:
-                for region in citation.annotated_regions:
-                    citation_dict['annotated_regions'].append({
-                        'start_index': region.start_index if hasattr(region, 'start_index') else 0,
-                        'end_index': region.end_index if hasattr(region, 'end_index') else 0
-                    })
+            regions = citation.get('annotated_regions', [])
+            if regions:
+                for region in regions:
+                    if isinstance(region, dict):
+                        citation_dict['annotated_regions'].append({
+                            'start_index': region.get('start_index', 0),
+                            'end_index': region.get('end_index', 0),
+                        })
+                    else:
+                        citation_dict['annotated_regions'].append({
+                            'start_index': getattr(region, 'start_index', 0),
+                            'end_index': getattr(region, 'end_index', 0),
+                        })
             
             # Extract additional properties (including page_number)
-            if hasattr(citation, 'additional_properties') and citation.additional_properties:
-                citation_dict['additional_properties'] = dict(citation.additional_properties)
+            additional = citation.get('additional_properties', {})
+            if additional:
+                citation_dict['additional_properties'] = dict(additional)
             
             formatted_citations.append(citation_dict)
         
@@ -550,11 +552,9 @@ Note: Document metadata has already been extracted using Azure Document Intellig
 
     async def cleanup(self):
         """
-        Cleanup resources and optionally delete the agent.
+        Cleanup resources.
         Call this when you're done with the agent to free resources.
         """
-        # Provider and credentials are managed via async context manager in each method call
-        # No persistent resources to clean up with hosted Azure AI Search tool
         pass
 
 
@@ -564,16 +564,16 @@ async def main():
 
     load_dotenv()
 
-    # Initialize agent with hosted Azure AI Search tool
-    # Requires AI_SEARCH_PROJECT_CONNECTION_ID environment variable to be set
-    # Configure the connection in your Azure AI Foundry project first
+    # Initialize agent with Azure AI Search function tool
+    # Requires AZURE_SEARCH_ENDPOINT and AZURE_SEARCH_API_KEY environment variables
     
     agent = ComplianceAgent(
         project_endpoint=os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT") or os.getenv("AZURE_AI_PROJECT_ENDPOINT") or "",
         model_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME") or os.getenv("AZURE_OPENAI_DEPLOYMENT") or "gpt-4",
         search_index_name=os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX") or "grant-compliance-index",
-        search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),  # Required for hosted Azure AI Search
-        search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),  # simple, semantic, or vector
+        search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+        search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
+        search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
     )
 
     # Example proposal

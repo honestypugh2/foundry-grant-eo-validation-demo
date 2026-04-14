@@ -38,7 +38,7 @@ The Bicep templates deploy the following Azure resources:
 | **Azure Blob Storage** | Document storage and management | Standard RAGRS with 7-day retention |
 | **Azure Key Vault (not used for Demo)** | Secrets management | Standard, RBAC-enabled (commented out) |
 | **Azure Monitor** | Logging and monitoring | Log Analytics + Application Insights |
-| **Azure Function Apps (not used for Demo)** | Serverless email notifications and workflows | Consumption (Y1), Python 3.11 (commented out) |
+| **Azure Function Apps (optional)** | Serverless hosting via Agent Framework `AgentFunctionApp` | Consumption (Y1), Python 3.11 (commented out in IaC; see `src/functions/`) |
 | **App Service Plan (not used for Demo)** | Web application hosting | B1 (Basic) - Linux (commented out) |
 | **Backend App Service** | FastAPI REST API | Python 3.12 runtime (commented out) |
 | **Frontend App Service** | React/Vite web UI | Node.js 20 LTS runtime (commented out) |
@@ -56,16 +56,19 @@ The Bicep templates deploy the following Azure resources:
 
 | Service | Purpose | Configuration |
 |---------|---------|---------------|
-| **Azure OpenAI Service** | Large language models for compliance analysis | GPT-4o (2024-08-06), 30K TPM |
-| **Microsoft Agent Framework** | Agent orchestration and workflow management | Integrated via Azure AI Foundry |
-| **Semantic Kernel** | AI plugin ecosystem and function calling | SDK integration |
+| **Azure OpenAI Service** | Large language models for compliance analysis | GPT-4o (2024-08-06), 110K TPM, GlobalStandard SKU |
+| **Microsoft Agent Framework v1.0.1** | Agent orchestration and workflow management | `SequentialBuilder`, `@tool`, `Agent`, `FoundryChatClient` |
+| **Agent Framework Azure Functions** | Durable hosting of agents as serverless functions | `AgentFunctionApp`, activity triggers, orchestration triggers |
 
 ### Managed Identities & RBAC
 
 All services use **System-Assigned Managed Identities** with proper role assignments:
-- Backend App → Cognitive Services OpenAI User
-- Backend App → Search Index Data Contributor
-- Backend App → Storage Blob Data Contributor
+- User Principal → Azure AI User
+- User Principal → Azure AI Developer
+- User Principal → Cognitive Services OpenAI User
+- User Principal → Search Index Data Contributor
+- User Principal → Search Service Contributor
+- User Principal → Storage Blob Data Contributor
 - User Principal → All above roles (for development)
 
 ---

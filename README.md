@@ -4,36 +4,37 @@
 
 ![React App - Upload & Analyze](images/reactapp_uploadanalyze.png)
 
-## ⚠️ Preview Features & SDK Versions
+## SDK Versions
 
-This project uses **Azure AI Foundry Portal (preview)** and several **beta/preview SDK packages**. These features are under active development and may change before general availability.
+This project uses **Azure AI Foundry Portal** and the following SDK packages.
 
-### Preview SDKs Used
+### SDKs Used
 | Package | Version | Status |
 |---------|---------|--------|
-| `agent-framework` | 1.0.0b260114 | Beta |
-| `azure-ai-projects` | 2.0.0b3 | Beta |
-| `azure-ai-agents` | 1.2.0b5 | Beta |
-| `azure-search-documents` | 11.7.0b2 | Beta |
+| `agent-framework` | 1.0.1 | Stable |
+| `agent-framework-openai` | 1.0.1 | Stable |
+| `agent-framework-azurefunctions` | 1.0.0b260409 | Preview |
+| `agent-framework-azure-ai-search` | 0.0.0a1 | Alpha |
+| `azure-ai-projects` | 2.0.1 | Stable |
+| `azure-search-documents` | 11.6.0 | Stable |
 | `azure-ai-inference` | 1.0.0b9 | Beta |
-| `openai` | 2.15.0 | Stable |
+| `openai` | 2.31.0 | Stable |
 
 ### Installation Notes
 ```bash
-# Preview packages require the --pre flag
-pip install agent-framework-azure-ai --pre
-pip install azure-ai-projects --pre
+# Install using uv (recommended)
+uv sync
 
-# Or install all from requirements.txt
-pip install -r requirements.txt --pre
+# Or install from requirements.txt
+pip install -r requirements.txt
 ```
 
-### Key Preview Features
+### Key Features
 - **Azure AI Foundry Portal**: View and debug agents created with `azure-ai-projects` SDK
 - **Agent Framework**: Sequential workflow orchestration with event streaming
 - **Foundry Agent Service**: Server-side agent persistence and thread management
 
-> **Note**: Preview features may not be suitable for production workloads. Monitor the [Azure AI Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/) for updates and breaking changes.
+> **Note**: Monitor the [Azure AI Foundry documentation](https://learn.microsoft.com/azure/ai-foundry/) for updates and breaking changes.
 
 More images can be found at [images directory](images/).
 
@@ -195,6 +196,17 @@ This project includes **four orchestrator implementations** to coordinate the co
 - [src/agents/compliance_agent_foundry.py](src/agents/compliance_agent_foundry.py)
 - [src/agents/summarization_agent_foundry.py](src/agents/summarization_agent_foundry.py)
 
+### 5. **Azure Functions (Durable) Host** ([src/functions/grant_compliance_host/function_app.py](src/functions/grant_compliance_host/function_app.py)) ✨ NEW
+- **Pattern**: Agent Framework Azure Functions + Durable Task
+- **Structure**: `AgentFunctionApp` with durable agents + activity functions
+- **Best For**: Serverless hosting, async orchestration, production deployment
+- **Key Benefits**:
+  - ⚡ Serverless execution via Azure Functions Consumption plan
+  - 🔄 Durable orchestration with pass-through status polling
+  - 🤖 Auto-created HTTP endpoints per agent (`/api/agents/{name}/run`)
+  - 📡 Full workflow trigger (`/api/workflows/grant-compliance`)
+  - 🧱 Activity functions for non-LLM steps (ingest, risk, email)
+
 **Selecting an Orchestrator**:
 ```bash
 # Use Agent Framework SDK (default)
@@ -297,17 +309,17 @@ The system uses three complementary scores to evaluate grant proposals and guide
 ### AI & ML Services
 
 - **Azure OpenAI Service**: Large language models for compliance analysis
-- **Microsoft Agent Framework**: Agent orchestration and workflow management
-- **Semantic Kernel**: AI plugin ecosystem and function calling
+- **Microsoft Agent Framework v1.0.1**: Agent orchestration and workflow management (`SequentialBuilder`, `@tool`, `Agent`, `FoundryChatClient`)
+- **Agent Framework Azure Functions**: Durable hosting of agents via `AgentFunctionApp` and activity functions
 
 ### Development Tools
 
 - **React 19.2.3**: Modern UI framework (CVE-2025-55182 patched)
 - **Streamlit**: Interactive demo application with async processing
 - **FastAPI**: High-performance async Python web framework
-- **Python 3.10+**: Primary development language
+- **Python 3.11+**: Primary development language
 - **TypeScript 5.7.3**: Type-safe JavaScript development
-- **Microsoft Agent Framework**: Agent development SDK
+- **uv**: Fast Python package manager (recommended)
 
 ## Agent Customization
 
@@ -442,7 +454,7 @@ For detailed agent architecture, see [docs/Architecture.md](docs/Architecture.md
 - Azure Queue Storage (for asynchronous processing workflows)
 
 ### Development Environment
-- Python 3.10 or higher
+- Python 3.11 or higher (3.12 recommended)
 - [uv](https://docs.astral.sh/uv/) - Fast Python package installer (recommended)
 - Azure CLI installed and configured
 - Visual Studio Code (recommended)
@@ -573,7 +585,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Alternative: Use pip
 # python -m venv .venv
 # source .venv/bin/activate
-# pip install -r requirements.txt --pre
+# pip install -r requirements.txt
 ```
 
 > **Note**: `uv` automatically creates a virtual environment and installs all dependencies from `pyproject.toml`.
@@ -870,9 +882,11 @@ foundry-grant-eo-validation-demo/
 │   │   ├── email_trigger_agent.py # Email notification (traditional class)
 │   │   └── config/                # Agent configurations
 │   ├── functions/
-│   │   ├── document_processor/    # Azure Function for document ingestion
-│   │   ├── email_notifier/        # Azure Function for email notifications
-│   │   └── sharepoint_webhook_handler/ # Azure Function for SharePoint webhooks
+│   │   └── grant_compliance_host/  # Azure Functions (Durable) hosting
+│   │       ├── function_app.py    # AgentFunctionApp with durable agents + activities
+│   │       ├── host.json          # Functions runtime configuration
+│   │       ├── requirements.txt   # Isolated function dependencies
+│   │       └── local.settings.sample.json  # Sample local config
 │   └── workflows/                 # Workflow definitions
 ├── examples/
 │   └── document_ingestion_with_managed_identity.py # Managed Identity example
@@ -1005,4 +1019,4 @@ For questions or issues, please open an issue in this repository or contact the 
 
 **License**: MIT  
 **Maintainer**: Your Organization  
-**Last Updated**: December 2025
+**Last Updated**: April 2026
