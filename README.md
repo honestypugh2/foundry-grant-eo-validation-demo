@@ -38,8 +38,6 @@ pip install -r requirements.txt
 
 More images can be found at [images directory](images/).
 
-> **📌 Note**: To use the Streamlit app, navigate to the project root directory before running `streamlit run src/app/streamlit_app.py`.
-
 ---
 
 ## ⚠️ IMPORTANT: DEMONSTRATION PURPOSES ONLY
@@ -302,7 +300,7 @@ The system uses three complementary scores to evaluate grant proposals and guide
 | Service | Purpose | Use Case |
 |---------|---------|----------|
 | **Azure Container Registry** | Container image management | Store and manage Docker container images for deployment |
-| **Azure App Service** | Web application hosting | Host Streamlit or FastAPI applications in production |
+| **Azure App Service** | Web application hosting | Host FastAPI applications in production |
 | **Azure Queue Storage** | Asynchronous message queue | Queue document processing jobs, decouple workflows |
 | **SharePoint Online** | Document management (optional) | Store and access grant proposals and executive orders in SharePoint |
 
@@ -315,7 +313,6 @@ The system uses three complementary scores to evaluate grant proposals and guide
 ### Development Tools
 
 - **React 19.2.3**: Modern UI framework (CVE-2025-55182 patched)
-- **Streamlit**: Interactive demo application with async processing
 - **FastAPI**: High-performance async Python web framework
 - **Python 3.11+**: Primary development language
 - **TypeScript 5.7.3**: Type-safe JavaScript development
@@ -665,14 +662,6 @@ npm run dev
 # Frontend runs at http://localhost:3000
 ```
 
-**Alternative: Run Streamlit Demo (Legacy)**
-```bash
-# Activate virtual environment first
-source .venv/bin/activate
-streamlit run src/app/streamlit_app.py
-# Opens at http://localhost:8501
-```
-
 ---
 
 ### 4. Add Your PDF Documents
@@ -740,7 +729,7 @@ For production use with Azure services:
    ```
 
 2. **Process Grant Proposal PDFs** (Documents for Review)
-   - Upload through the web interface (React or Streamlit)
+   - Upload through the web interface (React frontend)
    - Place in SharePoint document library (production setup)
    - Submit via email (triggers Azure Function App in production)
 
@@ -755,33 +744,20 @@ The Azure Document Intelligence service will automatically:
 The application is now running! Access it at:
 - **React Frontend**: http://localhost:3000 (recommended)
 - **FastAPI Backend**: http://localhost:8000/docs (API documentation)
-- **Streamlit Demo**: http://localhost:8501 (if running legacy demo)
 
 **Note**: If you used `./start.sh`, the React app may have opened automatically in your browser.
 
 ## Demo Application
 
-The application provides both a modern React frontend and a legacy Streamlit interface:
+The application provides a modern React frontend:
 
-### React Frontend (Recommended)
+### React Frontend
 Modern, production-ready interface with:
 - **Document Upload**: Drag-and-drop for grant proposals (PDF, Word, text)
 - **Real-time Processing**: Watch multi-agent analysis in action
 - **Compliance Dashboard**: Visual compliance status with detailed citations
 - **Knowledge Base**: Browse and download executive orders
 - **Risk Analysis**: Comprehensive risk scoring with recommendations
-
-### Streamlit Demo (Legacy)
-Original demo interface available for reference:
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run Streamlit demo
-streamlit run src/app/streamlit_app.py
-```
-
-The Streamlit app will open at `http://localhost:8501`.
 
 ### Working with PDF Documents
 
@@ -862,12 +838,6 @@ foundry-grant-eo-validation-demo/
 │   │   ├── main.py                # FastAPI REST API
 │   │   ├── requirements.txt       # Backend dependencies
 │   │   └── test_server.py         # Backend test utilities
-│   ├── app/
-│   │   ├── streamlit_app.py       # Streamlit demo interface
-│   │   ├── components/            # Streamlit UI components
-│   │   ├── pages/                 # Streamlit multi-page sections
-│   │   ├── assets/                # Static assets (images, CSS)
-│   │   └── utils/                 # Helper functions
 │   ├── agents/                    # AI Agents & Orchestrators
 │   │   ├── __init__.py
 │   │   ├── orchestrator.py        # Original orchestrator (Agent Framework only)
@@ -969,7 +939,7 @@ foundry-grant-eo-validation-demo/
 
 **Grant Proposal PDFs** (`knowledge_base/sample_proposals/`):
 - Place grant proposals that need compliance review
-- Can be uploaded through Streamlit UI or placed directly
+- Can be uploaded through the React web interface or placed directly
 - Processed by Azure Document Intelligence for text extraction
 - Analyzed against knowledge base for compliance
 
@@ -992,6 +962,7 @@ For recent changes and version history, see [CHANGELOG.md](CHANGELOG.md).
 - [Azure Document Intelligence](https://learn.microsoft.com/azure/ai-services/document-intelligence/)
 - [Azure AI Search](https://learn.microsoft.com/azure/search/)
 - [Microsoft Agent Framework](https://github.com/microsoft/agent-framework)
+- [Agent Framework Azure Functions Integration](https://learn.microsoft.com/en-us/agent-framework/integrations/azure-functions?tabs=bash&pivots=programming-language-python)
 
 ### Project Guides
 - [📝 CHANGELOG](CHANGELOG.md) - **Version history and recent updates**
@@ -999,6 +970,7 @@ For recent changes and version history, see [CHANGELOG.md](CHANGELOG.md).
 - [⚛️ React App Quick Start](docs/ReactQuickstart.md) - **Get the React frontend running in 60 seconds**
 - [🏗️ System Architecture](docs/Architecture.md) - **Comprehensive architecture documentation**
 - [🚀 Deployment Guide](docs/Deployment.md) - **Azure deployment instructions**
+- [⚙️ Azure Functions (Durable) Deployment](docs/AzureFunctionsDurableDeployment.md) - **Deploy hosted agents via Azure Functions with Durable Task Scheduler**
 - [📖 User Guide](docs/UserGuide.md) - **End-user documentation and workflows**
 - [📤 Upload PDFs to Azure AI Search](docs/uploadPdfsToAzureSearch.md) - Step-by-step guide for indexing PDF documents
 - [📄 PDF Document Guide](docs/pdfGuide.md) - Working with PDF executive orders and proposals

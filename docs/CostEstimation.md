@@ -268,7 +268,7 @@ knowledge_base/
 ---
 
 ### 8. Optional: Azure App Service
-**Purpose**: Host Streamlit or FastAPI frontend (alternative to local development)
+**Purpose**: Host FastAPI backend (alternative to local development)
 
 **Pricing Model**:
 

@@ -92,6 +92,9 @@ tmp/
 temp/
 *.tmp
 
+# Transient copy of agents package for function app deployment
+src/functions/grant_compliance_host/agents/
+
 # Database
 *.db
 *.sqlite

@@ -114,12 +114,6 @@ def analyze_compliance(
     pass
 ```
 
-### Streamlit
-- Keep components modular and reusable
-- Use st.cache_data or st.cache_resource appropriately
-- Provide helpful error messages
-- Include user-friendly documentation
-
 ### Documentation
 - Update README.md for new features
 - Add docstrings to all functions
@@ -163,7 +157,6 @@ def test_compliance_analysis():
 ```
 foundry-grant-eo-validation-demo/
 ├── agents/           # AI agent implementations
-├── app/              # Streamlit application
 ├── config/           # Configuration files
 ├── knowledge_base/   # Sample documents
 ├── tests/            # Test suite

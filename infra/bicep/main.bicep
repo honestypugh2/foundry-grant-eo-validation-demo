@@ -18,13 +18,16 @@ param tags object = {}
 param openAIDeploymentName string = 'gpt-4o'
 
 @description('Azure OpenAI model version')
-param openAIModelVersion string = '2024-08-06'
+param openAIModelVersion string = '2024-11-20'
 
 @description('Azure Search index name')
 param searchIndexName string = 'grant-compliance-index'
 
 @description('Storage container name')
 param storageContainerName string = 'documents'
+
+@description('Location for Azure AI Search (override if primary region is out of capacity)')
+param searchLocation string = location
 
 // Generate unique suffix for globally unique resources
 var uniqueSuffix = uniqueString(resourceGroup().id)
@@ -136,7 +139,7 @@ resource documentIntelligence 'Microsoft.CognitiveServices/accounts@2025-06-01' 
 
 resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
   name: '${abbrs.searchSearchServices}${resourcePrefix}-${environmentName}-${uniqueSuffix}'
-  location: location
+  location: searchLocation
   tags: tags
   sku: {
     name: 'basic'
@@ -329,83 +332,262 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // ============================================================================
-// Azure Function App (for email notifications and document processing)
+// Azure Function App — Grant Compliance Host (Flex Consumption + DTS)
+// Agent Framework durable agents hosted on serverless compute
 // ============================================================================
-// Commented out to avoid quota issues - deploy manually if needed
 
-// Function App Storage Account (separate from document storage)
-// resource functionStorageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
-//   name: '${abbrs.storageStorageAccounts}fn${replace(resourcePrefix, '-', '')}${uniqueSuffix}'
-//   location: location
-//   tags: tags
-//   kind: 'StorageV2'
-//   sku: {
-//     name: 'Standard_LRS'
-//   }
-//   properties: {
-//     accessTier: 'Hot'
-//     minimumTlsVersion: 'TLS1_2'
-//     supportsHttpsTrafficOnly: true
-//     allowBlobPublicAccess: false
-//   }
-// }
+@description('Deploy Azure Functions for durable agent hosting')
+param deployFunctionApps bool = true
 
-// Function App Plan (Consumption)
-// resource functionAppPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
-//   name: '${abbrs.webServerFarms}fn-${resourcePrefix}-${environmentName}'
-//   location: location
-//   tags: tags
-//   sku: {
-//     name: 'Y1'
-//     tier: 'Dynamic'
-//   }
-//   properties: {
-//     reserved: true // Linux
-//   }
-//   kind: 'functionapp,linux'
-// }
+// Dedicated storage account for Azure Functions runtime
+resource functionStorageAccount 'Microsoft.Storage/storageAccounts@2025-01-01' = if (deployFunctionApps) {
+  name: '${abbrs.storageStorageAccounts}fn${replace(resourcePrefix, '-', '')}${take(uniqueSuffix, 6)}'
+  location: location
+  tags: tags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    accessTier: 'Hot'
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: false
+  }
+}
 
-// Function App (Email Notifier)
-// resource emailNotifierFunction 'Microsoft.Web/sites@2023-01-01' = {
-//   name: '${abbrs.webSitesFunctions}email-${resourcePrefix}-${environmentName}'
-//   location: location
-//   tags: union(tags, { 'azd-service-name': 'email-notifier' })
-//   kind: 'functionapp,linux'
-//   identity: {
-//     type: 'SystemAssigned'
-//   }
-//   properties: {
-//     serverFarmId: functionAppPlan.id
-//     httpsOnly: true
-//     siteConfig: {
-//       linuxFxVersion: 'PYTHON|3.11'
-//       ftpsState: 'Disabled'
-//       minTlsVersion: '1.2'
-//       appSettings: [
-//         {
-//           name: 'AzureWebJobsStorage'
-//           value: 'DefaultEndpointsProtocol=https;AccountName=${functionStorageAccount.name};AccountKey=${functionStorageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
-//         }
-//         {
-//           name: 'FUNCTIONS_EXTENSION_VERSION'
-//           value: '~4'
-//         }
-//         {
-//           name: 'FUNCTIONS_WORKER_RUNTIME'
-//           value: 'python'
-//         }
-//         {
-//           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-//           value: applicationInsights.properties.ConnectionString
-//         }
-//         {
-//           name: 'USE_MANAGED_IDENTITY'
-//           value: 'true'
-//         }
-//       ]
-//     }
-//   }
-// }
+// Blob service on function storage account
+resource functionBlobService 'Microsoft.Storage/storageAccounts/blobServices@2025-01-01' = if (deployFunctionApps) {
+  parent: functionStorageAccount
+  name: 'default'
+}
+
+// Deployment package container for Flex Consumption
+resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-01-01' = if (deployFunctionApps) {
+  parent: functionBlobService
+  name: 'deploymentpackage'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// Flex Consumption plan for grant compliance host
+resource grantCompliancePlan 'Microsoft.Web/serverfarms@2024-04-01' = if (deployFunctionApps) {
+  name: '${abbrs.webServerFarms}compliance-${resourcePrefix}-${environmentName}'
+  location: location
+  tags: tags
+  sku: {
+    tier: 'FlexConsumption'
+    name: 'FC1'
+  }
+  kind: 'functionapp,linux'
+  properties: {
+    reserved: true
+  }
+}
+
+// Durable Task Scheduler for durable agent state
+resource durableTaskScheduler 'Microsoft.DurableTask/schedulers@2025-04-01-preview' = if (deployFunctionApps) {
+  name: 'dts-${resourcePrefix}-${environmentName}'
+  location: location
+  tags: tags
+  properties: {
+    ipAllowlist: []
+    sku: {
+      name: 'Consumption'
+    }
+  }
+}
+
+resource durableTaskHub 'Microsoft.DurableTask/schedulers/taskHubs@2025-04-01-preview' = if (deployFunctionApps) {
+  parent: durableTaskScheduler
+  name: 'default'
+}
+
+// Grant Compliance Host function app (durable agents)
+resource grantComplianceFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunctionApps) {
+  name: '${abbrs.webSitesFunctions}compliance-${resourcePrefix}-${environmentName}'
+  location: location
+  tags: union(tags, { 'azd-service-name': 'grant-compliance-host' })
+  kind: 'functionapp,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: grantCompliancePlan.id
+    httpsOnly: true
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${functionStorageAccount.properties.primaryEndpoints.blob}deploymentpackage'
+          authentication: {
+            type: 'SystemAssignedIdentity'
+          }
+        }
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 100
+        instanceMemoryMB: 2048
+      }
+      runtime: {
+        name: 'python'
+        version: '3.11'
+      }
+    }
+    siteConfig: {
+      ftpsState: 'Disabled'
+      minTlsVersion: '1.2'
+      appSettings: [
+        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount.name }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
+        { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryResource.properties.endpoint }
+        { name: 'AZURE_OPENAI_DEPLOYMENT_NAME', value: openAIDeployment.name }
+        { name: 'AZURE_OPENAI_API_VERSION', value: '2024-12-01-preview' }
+        { name: 'AZURE_AI_FOUNDRY_PROJECT_ENDPOINT', value: aiFoundryProject.properties.endpoints['AI Foundry API'] }
+        { name: 'AZURE_SEARCH_ENDPOINT', value: 'https://${searchService.name}.search.windows.net' }
+        { name: 'AZURE_SEARCH_INDEX_NAME', value: searchIndexName }
+        { name: 'AI_SEARCH_QUERY_TYPE', value: 'simple' }
+        { name: 'USE_AZURE', value: 'true' }
+        { name: 'USE_MANAGED_IDENTITY', value: 'true' }
+      ]
+    }
+  }
+}
+
+// Email Notifier function app (shares Flex Consumption plan)
+resource emailNotifierFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunctionApps) {
+  name: '${abbrs.webSitesFunctions}email-${resourcePrefix}-${environmentName}'
+  location: location
+  tags: union(tags, { 'azd-service-name': 'email-notifier' })
+  kind: 'functionapp,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: grantCompliancePlan.id
+    httpsOnly: true
+    functionAppConfig: {
+      deployment: {
+        storage: {
+          type: 'blobContainer'
+          value: '${functionStorageAccount.properties.primaryEndpoints.blob}deploymentpackage'
+          authentication: {
+            type: 'SystemAssignedIdentity'
+          }
+        }
+      }
+      scaleAndConcurrency: {
+        maximumInstanceCount: 100
+        instanceMemoryMB: 2048
+      }
+      runtime: {
+        name: 'python'
+        version: '3.11'
+      }
+    }
+    siteConfig: {
+      ftpsState: 'Disabled'
+      minTlsVersion: '1.2'
+      appSettings: [
+        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount.name }
+        { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
+        { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
+        { name: 'USE_MANAGED_IDENTITY', value: 'true' }
+      ]
+    }
+  }
+}
+
+// RBAC: Grant Compliance Function → OpenAI
+resource complianceFunctionToOpenAI 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: aiFoundryResource
+  name: guid(aiFoundryResource.id, grantComplianceFunction.id, cognitiveServicesOpenAIUserRole)
+  properties: {
+    roleDefinitionId: cognitiveServicesOpenAIUserRole
+    principalId: grantComplianceFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → AI Search
+resource complianceFunctionToSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: searchService
+  name: guid(searchService.id, grantComplianceFunction.id, searchIndexDataContributorRole)
+  properties: {
+    roleDefinitionId: searchIndexDataContributorRole
+    principalId: grantComplianceFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → Function Storage (Blob Data Owner)
+resource complianceFunctionToStorage 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageBlobDataOwnerRole)
+  properties: {
+    roleDefinitionId: storageBlobDataOwnerRole
+    principalId: grantComplianceFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Email Notifier Function → Function Storage (Blob Data Owner)
+resource emailFunctionToStorage 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageBlobDataOwnerRole)
+  properties: {
+    roleDefinitionId: storageBlobDataOwnerRole
+    principalId: emailNotifierFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → Function Storage (Queue Data Contributor)
+resource complianceFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageQueueDataContributorRole)
+  properties: {
+    roleDefinitionId: storageQueueDataContributorRole
+    principalId: grantComplianceFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Email Notifier Function → Function Storage (Queue Data Contributor)
+resource emailFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageQueueDataContributorRole)
+  properties: {
+    roleDefinitionId: storageQueueDataContributorRole
+    principalId: emailNotifierFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → Function Storage (Table Data Contributor)
+resource complianceFunctionToTable 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageTableDataContributorRole)
+  properties: {
+    roleDefinitionId: storageTableDataContributorRole
+    principalId: grantComplianceFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Email Notifier Function → Function Storage (Table Data Contributor)
+resource emailFunctionToTable 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: functionStorageAccount
+  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageTableDataContributorRole)
+  properties: {
+    roleDefinitionId: storageTableDataContributorRole
+    principalId: emailNotifierFunction.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
 // ============================================================================
 // App Service Plan (for optional web hosting)
@@ -566,6 +748,15 @@ resource searchServiceRoleAssignment 'Microsoft.Authorization/roleAssignments@20
 // Storage Blob Data Contributor role
 var storageBlobDataContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 
+// Storage Blob Data Owner role (required for Functions managed identity storage access)
+var storageBlobDataOwnerRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+
+// Storage Queue Data Contributor role (required for Functions triggers/bindings)
+var storageQueueDataContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+
+// Storage Table Data Contributor role (required for Functions durable task state)
+var storageTableDataContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
+
 resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(principalId)) {
   scope: storageAccount
   name: guid(storageAccount.id, principalId, storageBlobDataContributorRole)
@@ -634,13 +825,14 @@ output applicationInsightsName string = applicationInsights.name
 output applicationInsightsConnectionString string = applicationInsights.properties.ConnectionString
 output applicationInsightsInstrumentationKey string = applicationInsights.properties.InstrumentationKey
 
-// Function App outputs commented out - no function apps deployed due to quota
-// output emailNotifierFunctionName string = emailNotifierFunction.name
-// output emailNotifierFunctionUri string = 'https://${emailNotifierFunction.properties.defaultHostName}'
+// Function App outputs
+output grantComplianceFunctionName string = deployFunctionApps ? grantComplianceFunction.name : ''
+output grantComplianceFunctionUri string = deployFunctionApps ? 'https://${grantComplianceFunction.properties.defaultHostName}' : ''
+output emailNotifierFunctionName string = deployFunctionApps ? emailNotifierFunction.name : ''
+output emailNotifierFunctionUri string = deployFunctionApps ? 'https://${emailNotifierFunction.properties.defaultHostName}' : ''
+output durableTaskSchedulerName string = deployFunctionApps ? durableTaskScheduler.name : ''
 
-// App Service outputs commented out - no app services deployed due to quota
-// output backendUri string = 'https://${backendAppService.properties.defaultHostName}'
-// output frontendUri string = 'https://${frontendAppService.properties.defaultHostName}'
+// App Service outputs (not deployed — run locally)
 output backendUri string = 'Run locally: http://localhost:8000'
 output frontendUri string = 'Run locally: http://localhost:3000'
 

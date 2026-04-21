@@ -39,8 +39,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
-from pathlib import Path
 from typing import Annotated
 
 import azure.durable_functions as df
@@ -49,13 +47,6 @@ from agent_framework import tool
 from agent_framework.azure import AgentFunctionApp
 from agent_framework.openai import OpenAIChatCompletionClient
 from azure.identity import DefaultAzureCredential
-
-# ---------------------------------------------------------------------------
-# Python path – allow importing the project's existing agent classes
-# ---------------------------------------------------------------------------
-_PROJECT_SRC = str(Path(__file__).resolve().parent.parent.parent)
-if _PROJECT_SRC not in sys.path:
-    sys.path.insert(0, _PROJECT_SRC)
 
 logger = logging.getLogger(__name__)
 
@@ -295,12 +286,14 @@ _chat_client = OpenAIChatCompletionClient(
 _summarization_agent = _chat_client.as_agent(
     name="SummarizationAgent",
     instructions=SUMMARIZATION_INSTRUCTIONS,
+    tools=[extract_document_info],
 )
 
 # ComplianceAgent – has AI Search + context-formatting tools
 _compliance_agent = _chat_client.as_agent(
     name="ComplianceAgent",
     instructions=COMPLIANCE_INSTRUCTIONS,
+    tools=[search_executive_orders, format_grant_context],
 )
 
 # ───────────────────────────────────────────────────────────────────────────
@@ -434,9 +427,12 @@ def grant_compliance_workflow(context: df.DurableOrchestrationContext):
     if isinstance(raw_input, str):
         file_path = raw_input
         send_email = False
-    else:
+    elif isinstance(raw_input, dict):
         file_path = raw_input.get("file_path", "")
         send_email = raw_input.get("send_email", False)
+    else:
+        file_path = ""
+        send_email = False
 
     # ── Step 1: Document Ingestion ────────────────────────────────────────
     doc_json = yield context.call_activity("ingest_document", file_path)

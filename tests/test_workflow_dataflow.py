@@ -1,5 +1,5 @@
 """
-Full Workflow Test - Demonstrates Streamlit Integration
+Full Workflow Test - Demonstrates Data Flow Integration
 Tests the complete workflow with detailed output showing how data flows between agents.
 """
 
@@ -324,8 +324,8 @@ try:
     print('   Step 4 → Step 5: ✅ risk_report')
     print('   All Steps → Final: ✅ Complete workflow_results')
 
-    print('\n📱 Streamlit App Integration:')
-    print('   This data structure matches what streamlit_app_new.py expects')
+    print('\n📱 Frontend Integration:')
+    print('   This data structure matches what the React frontend expects')
     print('   Results can be displayed in the dashboard with all tabs populated')
     print('\n✅ Workflow test completed successfully!')
     print('=' * 80)

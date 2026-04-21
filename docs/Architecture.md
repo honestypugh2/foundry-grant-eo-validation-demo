@@ -435,9 +435,9 @@ export PERSIST_FOUNDRY_AGENTS=true
 - ✅ **React 19.2.3** - Upgraded from React 18.3.1 (CVE-2025-55182 patched)
 - ✅ **React Router 7.11.0** - Major upgrade for React 19 compatibility
 - ✅ **TypeScript 5.7.3** - Latest stable with enhanced type checking
-- ✅ **Streamlit Async Migration** - Now uses `asyncio.run()` with `process_grant_proposal_async()`
 - ✅ **Security Hardening** - 0 npm vulnerabilities, all dependencies updated
 - ✅ **Managed Identity Default** - Azure authentication modernized
+- ✅ **Streamlit Removed** - Legacy Streamlit app removed in favor of React + FastAPI
 
 **Security:**
 - CVE-2025-55182 (React2Shell) fully mitigated with React 19.2.3
@@ -445,7 +445,7 @@ export PERSIST_FOUNDRY_AGENTS=true
 - All Azure SDKs updated to latest secure versions
 
 **Breaking Changes:**
-- Streamlit: Legacy mock data version removed, now requires async orchestrator
+- Streamlit: Legacy Streamlit app removed; use React frontend + FastAPI backend
 - React: Upgraded from 18 to 19 (may require component updates)
 - React Router: Upgraded from v6 to v7 (routing API changes)
 

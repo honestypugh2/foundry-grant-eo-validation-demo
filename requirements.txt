@@ -1,5 +1,4 @@
 # Core Dependencies
-streamlit>=1.56.0
 python-dotenv>=1.2.2
 
 # Azure AI Dependencies

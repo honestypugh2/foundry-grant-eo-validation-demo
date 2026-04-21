@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Comprehensive security documentation for CVE-2025-55182 mitigation
 - React 19.2.3 upgrade with full security patch compliance
+- Azure Functions (Durable) deployment documentation
 
 ### Changed
 - Updated React from 18.3.1 to 19.2.3 (CVE-2025-55182 patched version)
@@ -18,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all type definitions to React 19 (@types/react 19.0.6, @types/react-dom 19.0.3)
 - Updated Azure SDK packages to latest versions
 - Updated all build tools and dependencies to latest stable versions
+- Updated Foundry Agent Service scripts (`_foundry.py`) to use `DefaultAzureCredential`
+
+### Removed
+- **BREAKING**: Removed Streamlit application (`src/app/`) — use React frontend + FastAPI backend
+- Removed `streamlit` dependency from project
+- Removed `tests/test_streamlit_integration.py`
 
 ### Security
 - **CRITICAL**: Upgraded to React 19.2.3 to address CVE-2025-55182 (React2Shell vulnerability)
@@ -27,24 +34,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0] - 2025-12-18
 
-### Changed - Streamlit Migration to Async
-- **BREAKING**: Migrated Streamlit app to use async processing
-- Updated `streamlit_app.py` to use `asyncio.run()` with `process_grant_proposal_async()`
-- Aligned Streamlit architecture with FastAPI async backend
-- Removed legacy `streamlit_app.py` (mock data version)
-- Renamed `streamlit_app_new.py` to `streamlit_app.py` as production version
+### Changed
+- **BREAKING**: Migrated to async processing architecture
+- Aligned all orchestrators with FastAPI async backend
 
 ### Added
-- Streamlit async processing implementation
-- `app/README.md` with comprehensive Streamlit documentation
+- Async processing implementation across all orchestrators
 - Deprecation warnings and migration guides
-- Production-ready error handling in Streamlit app
+- Production-ready error handling
 
 ### Improved
-- Streamlit now uses real AgentOrchestrator instead of mock data
-- Managed identity authentication by default in Streamlit
-- Document Intelligence SDK integration in Streamlit
-- Layout consistency between React and Streamlit interfaces
+- Managed identity authentication by default
+- Document Intelligence SDK integration
+- Layout consistency in React frontend
 
 ## [1.0.0] - 2025-11-15
 
@@ -56,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Azure OpenAI integration for compliance analysis
 - Azure AI Search integration for knowledge base
 - Azure Document Intelligence for OCR processing
-- Streamlit demo application
+- Streamlit demo application (removed in later release)
 - Comprehensive documentation (Architecture, Deployment, User Guide)
 
 ### Features
@@ -124,17 +126,12 @@ npm audit  # Should show 0 vulnerabilities
 - [ ] Check TypeScript compilation
 - [ ] Test all user workflows
 
-### Upgrading to Streamlit Async (v2.0.0)
+### Upgrading from v1.x (Streamlit)
 
-**Breaking Changes:**
-- Legacy `streamlit_app.py` removed
-- Now uses `asyncio.run()` with async orchestrator
-- Requires latest agent code changes
-
-**Migration:**
-- Use `streamlit_app.py` (production version)
-- Update environment variables for managed identity
-- Test async processing workflow
+The Streamlit application (`src/app/`) has been removed. Use the React frontend + FastAPI backend:
+```bash
+./start.sh  # Starts FastAPI backend on :8000 and React frontend on :3000
+```
 
 ---
 

@@ -1,6 +1,6 @@
 """
 Summarization Agent using Azure AI Foundry Agent Service
-Uses azure-ai-projects SDK for intelligent summarization.
+Uses azure-ai-projects SDK (>=2.0.1) for intelligent summarization.
 
 This is an alternative implementation to summarization_agent.py which uses agent-framework.
 Set AGENT_SERVICE=foundry in .env to use this implementation.
@@ -12,7 +12,7 @@ import asyncio
 from typing import Dict, Any, List
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import PromptAgentDefinition
-from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
+from azure.identity.aio import DefaultAzureCredential
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SummarizationAgentFoundry:
     """
     Agent responsible for generating summaries of grant proposals.
-    Uses Azure AI Foundry Agent Service (azure-ai-projects SDK).
+    Uses Azure AI Foundry Agent Service (azure-ai-projects SDK >=2.0.1).
     """
     
     def __init__(
@@ -79,13 +79,7 @@ Output should include:
         logger.info("Generating document summary using Foundry Agent Service")
         
         try:
-            # Create credentials and clients fresh to avoid pickle issues
-            # Use AzureCliCredential for local dev, ManagedIdentityCredential for Azure
-            use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
-            if use_managed_identity:
-                credential = ManagedIdentityCredential()
-            else:
-                credential = AzureCliCredential()
+            credential = DefaultAzureCredential()
             
             async with (
                 credential,

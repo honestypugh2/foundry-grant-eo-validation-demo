@@ -166,7 +166,7 @@ Risk Scoring → risk_report {
     ↓
 Email Notification (optional)
     ↓
-Final Results → displayed in React/Streamlit UI
+Final Results → displayed in React UI
 ```
 
 ## Citation Structure

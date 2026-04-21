@@ -69,11 +69,11 @@ knowledge_base/
 
 ### Demo Mode (No Azure Required)
 
-In demo mode, the system works with sample data embedded in the Streamlit app:
+In demo mode, the system works with sample data:
 
 ```bash
-# Just run the demo
-streamlit run app/streamlit_app.py
+# Start the application
+./start.sh
 ```
 
 For PDFs in demo mode:
@@ -175,9 +175,9 @@ python scripts/index_knowledge_base.py \
 
 For analyzing grant proposals:
 
-1. **Via Streamlit Upload**:
-   - Run app: `streamlit run app/streamlit_app.py`
-   - Navigate to "📝 Document Upload"
+1. **Via Web UI Upload**:
+   - Start the app: `./start.sh`
+   - Navigate to "Document Upload" in the React frontend
    - Upload PDF directly
    - System automatically extracts text with Azure Document Intelligence
 

@@ -133,7 +133,7 @@ When enabled:
 The compliance agent uses Azure AI Search as a tool:
 
 ```python
-AzureAISearchAgentTool(
+AzureAISearchTool(
     tool_resources=AzureAISearchToolResource(
         indexes=[AISearchIndexResource(
             index_connection_id=connection_id,
