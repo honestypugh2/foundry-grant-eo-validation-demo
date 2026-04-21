@@ -164,7 +164,7 @@ Output Format:
             logger.info(f"✓ Document ingested: {metadata.get('word_count', 0)} words")
             
             # Create Foundry client for AI agent steps
-            credential = DefaultAzureCredential()
+            credential = DefaultAzureCredential(exclude_environment_credential=True)
             
             async with (
                 credential,
@@ -203,7 +203,7 @@ Provide Executive Summary, Key Objectives, Budget Highlights, Timeline, Key Topi
                         summary_text = ""
                         stream = await openai_client.responses.create(
                             conversation=summary_conv.id,
-                            extra_body={"agent": {"name": summary_agent.name, "type": "agent_reference"}},
+                            extra_body={"agent_reference": {"name": summary_agent.name, "type": "agent_reference"}},
                             input=summary_prompt,
                             stream=True,
                         )
@@ -269,7 +269,7 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
                         compliance_text = ""
                         stream = await openai_client.responses.create(
                             conversation=compliance_conv.id,
-                            extra_body={"agent": {"name": compliance_agent.name, "type": "agent_reference"}},
+                            extra_body={"agent_reference": {"name": compliance_agent.name, "type": "agent_reference"}},
                             input=compliance_prompt,
                             stream=True,
                             tool_choice="required",
@@ -821,7 +821,7 @@ RISK ASSESSMENT
 ---------------
 Overall Score: {risk['overall_score']:.1f}%
 Risk Level: {risk['risk_level'].upper()}
-Confidence: {risk['confidence']:.1f}%
+Confidence: {risk.get('assessment_certainty', risk.get('confidence', 0)):.1f}%
 
 COMPLIANCE STATUS
 -----------------

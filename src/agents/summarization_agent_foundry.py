@@ -79,7 +79,7 @@ Output should include:
         logger.info("Generating document summary using Foundry Agent Service")
         
         try:
-            credential = DefaultAzureCredential()
+            credential = DefaultAzureCredential(exclude_environment_credential=True)
             
             async with (
                 credential,
@@ -138,7 +138,7 @@ Structure your response clearly with section headers.
                         response_text = ""
                         stream = await openai_client.responses.create(
                             conversation=conversation.id,
-                            extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                            extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
                             input=prompt,
                             stream=True,
                         )

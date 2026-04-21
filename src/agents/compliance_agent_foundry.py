@@ -142,7 +142,7 @@ Output Format:
         """
         logger.info("Analyzing proposal using Foundry Agent Service")
         
-        credential = DefaultAzureCredential()
+        credential = DefaultAzureCredential(exclude_environment_credential=True)
         
         async with (
             credential,
@@ -203,7 +203,7 @@ Render citations as: `[message_idx:search_idx†source]`
                     
                     stream = await openai_client.responses.create(
                         conversation=conversation.id,
-                        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
                         input=prompt,
                         stream=True,
                         tool_choice="required",
