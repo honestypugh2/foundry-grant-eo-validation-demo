@@ -1,6 +1,6 @@
 """
 Compliance Agent using Azure AI Foundry Agent Service
-Uses azure-ai-projects SDK with Azure AI Search tool for knowledge base retrieval.
+Uses azure-ai-projects SDK (>=2.0.1) with Azure AI Search tool for knowledge base retrieval.
 
 This is an alternative implementation to compliance_agent.py which uses agent-framework.
 Set AGENT_SERVICE=foundry in .env to use this implementation.
@@ -13,13 +13,13 @@ import asyncio
 from typing import Optional, Dict, Any
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import (
-    AzureAISearchAgentTool,
+    AzureAISearchTool,
     PromptAgentDefinition,
     AzureAISearchToolResource,
     AISearchIndexResource,
     AzureAISearchQueryType,
 )
-from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
+from azure.identity.aio import DefaultAzureCredential
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 class ComplianceAgentFoundry:
     """
     AI Agent for analyzing grant proposal compliance with executive orders.
-    Uses Azure AI Foundry Agent Service (azure-ai-projects SDK) with Azure AI Search.
+    Uses Azure AI Foundry Agent Service (azure-ai-projects SDK >=2.0.1) with Azure AI Search.
     """
 
     def __init__(
@@ -93,12 +93,12 @@ Output Format:
 - Recommendations: [Actions needed]
 """
 
-    def _build_azure_ai_search_tool(self) -> AzureAISearchAgentTool:
+    def _build_azure_ai_search_tool(self) -> AzureAISearchTool:
         """
         Build the Azure AI Search tool for the agent.
         
         Returns:
-            AzureAISearchAgentTool: Configured search tool
+            AzureAISearchTool: Configured search tool
         """
         if not self.search_connection_id:
             raise ValueError(
@@ -111,7 +111,7 @@ Output Format:
             AzureAISearchQueryType.SIMPLE
         )
         
-        return AzureAISearchAgentTool(
+        return AzureAISearchTool(
             azure_ai_search=AzureAISearchToolResource(
                 indexes=[
                     AISearchIndexResource(
@@ -142,13 +142,7 @@ Output Format:
         """
         logger.info("Analyzing proposal using Foundry Agent Service")
         
-        # Create credentials and clients fresh to avoid pickle issues
-        # Use AzureCliCredential for local dev, ManagedIdentityCredential for Azure
-        use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
-        if use_managed_identity:
-            credential = ManagedIdentityCredential()
-        else:
-            credential = AzureCliCredential()
+        credential = DefaultAzureCredential(exclude_environment_credential=True)
         
         async with (
             credential,
@@ -209,7 +203,7 @@ Render citations as: `[message_idx:search_idx†source]`
                     
                     stream = await openai_client.responses.create(
                         conversation=conversation.id,
-                        extra_body={"agent": {"name": agent.name, "type": "agent_reference"}},
+                        extra_body={"agent_reference": {"name": agent.name, "type": "agent_reference"}},
                         input=prompt,
                         stream=True,
                         tool_choice="required",
@@ -475,7 +469,7 @@ async def main():
     print(f"Confidence: {result['confidence_score']}%")
     print(f"\nRelevant EOs: {len(result['relevant_executive_orders'])}")
     for eo in result['relevant_executive_orders']:
-        print(f"  - EO {eo['eo_number']}: {eo['title']}")
+        print(f"  - EO {eo.get('number', 'N/A')}: {eo['title']}")
     print(f"\n{result['analysis'][:1000]}...")
     
     await agent.cleanup()

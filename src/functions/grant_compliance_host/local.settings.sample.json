@@ -1,0 +1,27 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "TASKHUB_NAME": "default",
+
+    "AZURE_OPENAI_ENDPOINT": "https://<your-resource>.openai.azure.com",
+    "AZURE_OPENAI_DEPLOYMENT_NAME": "gpt-4o",
+    "AZURE_OPENAI_API_VERSION": "2024-12-01-preview",
+    "AZURE_OPENAI_API_KEY": "",
+
+    "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT": "https://<your-resource>.services.ai.azure.com/api/projects/<project>",
+
+    "AZURE_SEARCH_ENDPOINT": "https://<your-search>.search.windows.net",
+    "AZURE_SEARCH_INDEX_NAME": "grant-compliance-index",
+    "AZURE_SEARCH_API_KEY": "",
+    "AI_SEARCH_QUERY_TYPE": "simple",
+
+    "USE_AZURE": "true",
+    "USE_MANAGED_IDENTITY": "true",
+    "USE_GRAPH_API": "false",
+
+    "AZURE_CLIENT_ID": "",
+    "AZURE_TENANT_ID": ""
+  }
+}

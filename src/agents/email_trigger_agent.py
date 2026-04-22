@@ -476,7 +476,6 @@ This is an automated message from the Grant Proposal Compliance System.
             from msal import ConfidentialClientApplication
             
             logger.info("Acquiring access token from Microsoft Identity Platform...")
-            logger.info("Acquiring access token from Microsoft Identity Platform...")
             
             # Get access token
             app = ConfidentialClientApplication(

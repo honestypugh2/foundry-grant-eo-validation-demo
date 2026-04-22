@@ -27,10 +27,10 @@ cp your_grant_proposal.pdf knowledge_base/sample_proposals/
 
 ### Demo Mode (No Azure Setup)
 ```bash
-# Just run the app
-streamlit run app/streamlit_app.py
+# Start the application
+./start.sh
 
-# Upload PDFs through UI:
+# Upload PDFs through the React UI:
 # Go to "Document Upload" → Upload your PDF → Analyze
 ```
 
@@ -50,9 +50,9 @@ python scripts/index_knowledge_base.py --input knowledge_base/executive_orders -
 
 **Process Grant Proposals:**
 ```bash
-# Via Streamlit:
-streamlit run app/streamlit_app.py
-# Then upload through the web interface
+# Via React frontend:
+./start.sh
+# Then upload through the web interface at http://localhost:3000
 ```
 
 ---
@@ -123,8 +123,8 @@ python scripts/index_knowledge_base.py --input knowledge_base/executive_orders
 # Option A: Copy to sample directory
 cp Grant_Application.pdf knowledge_base/sample_proposals/
 
-# Option B: Upload through Streamlit UI
-streamlit run app/streamlit_app.py
+# Option B: Upload through React web UI
+./start.sh
 # Navigate to Document Upload → Choose file → Analyze
 ```
 

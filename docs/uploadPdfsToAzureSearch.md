@@ -376,12 +376,12 @@ Once documents are indexed, they're automatically available in the demo:
 ### Step 1: Start the Demo App
 
 ```bash
-streamlit run app/streamlit_app.py
+./start.sh
 ```
 
 ### Step 2: Upload a Grant Proposal
 
-1. Navigate to **"📝 Document Upload"** page
+1. Navigate to **"Document Upload"** page in the React frontend
 2. Upload a grant proposal PDF
 3. Click **"🚀 Analyze for Compliance"**
 
@@ -718,9 +718,9 @@ python scripts/index_knowledge_base.py \
 
 After uploading PDFs to Azure AI Search:
 
-1. **Test the Demo App**:
+1. **Test the Application**:
    ```bash
-   streamlit run app/streamlit_app.py
+   ./start.sh
    ```
 
 2. **Upload Grant Proposals**: Test compliance analysis with real proposals

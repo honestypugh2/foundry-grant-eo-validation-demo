@@ -13,23 +13,20 @@ The Grant Proposal Compliance Automation system is built on a multi-agent archit
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Client Layer                                │
-│  ┌──────────────────────┐         ┌──────────────────────┐        │
-│  │   React Frontend     │         │  Streamlit App       │        │
-│  │   (React 19.2.3)     │         │  (Async v2.0)        │        │
-│  │   Production SPA     │         │  Demo/Development    │        │
-│  └──────────┬───────────┘         └──────────┬───────────┘        │
-└─────────────┼────────────────────────────────┼────────────────────┘
-              │ REST API (HTTPS)                │ Direct Async Calls
-              ▼                                 ▼
+│  ┌──────────────────────────────────────────────────────────┐      │
+│  │   React Frontend (React 19.2.3 + TypeScript + Vite)     │      │
+│  │   Pages: Upload, Results, Knowledge Base, About         │      │
+│  └──────────────────────────┬───────────────────────────────┘      │
+└─────────────────────────────┼──────────────────────────────────────┘
+                              │ REST API (HTTPS)
+                              ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      Application Layer                              │
-│  ┌───────────────────────┐      ┌──────────────────────────────┐   │
-│  │  FastAPI Backend      │      │  Streamlit Runtime           │   │
-│  │  (Async/Await)        │      │  (asyncio.run)               │   │
-│  └───────────┬───────────┘      └──────────────┬───────────────┘   │
-│              │                                  │                   │
-│              └──────────────┬───────────────────┘                   │
-│                             ▼                                       │
+│  ┌───────────────────────────────────────────────────────────┐     │
+│  │  FastAPI Backend (Async/Await)                            │     │
+│  └───────────────────────────┬───────────────────────────────┘     │
+│                              │                                     │
+│                              ▼                                     │
 │  ┌───────────────────────────────────────────────────────────┐     │
 │  │           Agent Orchestrator (Async)                      │     │
 │  │  ┌────────────────────────────────────────────────────┐   │     │
@@ -203,7 +200,9 @@ export PERSIST_FOUNDRY_AGENTS=true
 **Technology**: Python, Business Logic
 
 #### 6. Email Trigger Agent
-**Purpose**: Sends attorney notifications for high-risk proposals
+**Purpose**: Prepares attorney notifications for high-risk proposals
+
+> **Note**: Email notification is an architectural component not active in the current demo. The workflow defaults `send_email=False`. Notifications are prepared but not sent unless explicitly opted in via the UI.
 
 **Responsibilities**:
 - Determine if notification is required (risk < 75%)
@@ -246,8 +245,8 @@ export PERSIST_FOUNDRY_AGENTS=true
            └─> Generate recommendations
                └─> Return risk report
 
-6. Email Notification (Conditional)
-   └─> IF risk < 75%
+6. Email Notification (Conditional — not active in demo by default)
+   └─> IF risk < 75% AND send_email=True
        └─> Format email
            └─> Send notification
                └─> Return email status
@@ -435,17 +434,14 @@ export PERSIST_FOUNDRY_AGENTS=true
 - ✅ **React 19.2.3** - Upgraded from React 18.3.1 (CVE-2025-55182 patched)
 - ✅ **React Router 7.11.0** - Major upgrade for React 19 compatibility
 - ✅ **TypeScript 5.7.3** - Latest stable with enhanced type checking
-- ✅ **Streamlit Async Migration** - Now uses `asyncio.run()` with `process_grant_proposal_async()`
 - ✅ **Security Hardening** - 0 npm vulnerabilities, all dependencies updated
 - ✅ **Managed Identity Default** - Azure authentication modernized
-
 **Security:**
 - CVE-2025-55182 (React2Shell) fully mitigated with React 19.2.3
 - Architecture verified as not vulnerable to React Server Components exploits
 - All Azure SDKs updated to latest secure versions
 
 **Breaking Changes:**
-- Streamlit: Legacy mock data version removed, now requires async orchestrator
 - React: Upgraded from 18 to 19 (may require component updates)
 - React Router: Upgraded from v6 to v7 (routing API changes)
 

@@ -12,7 +12,7 @@ FastAPI backend for the Grant Proposal Compliance Automation system.
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.11+ (3.12 recommended)
 - Azure AI services (optional - works in demo mode without)
 - Virtual environment activated
 
@@ -134,11 +134,13 @@ backend/
 - **python-multipart** - File upload support
 - **python-dotenv** - Environment variables
 - **Pydantic** - Data validation
+- **agent-framework v1.0.1** - Agent orchestration and `SequentialBuilder` workflows
+- **azure-search-documents v11.6.0** - Azure AI Search for compliance knowledge base
 
-The backend also uses the agent orchestrators from the parent project:
-- `src/agents/orchestrator.py` - Original multi-agent workflow
-- `src/agents/sequential_workflow_orchestrator.py` - Agent Framework Sequential Workflow
-- `src/agents/sequential_workflow_orchestrator_foundry.py` - Azure AI Foundry Agent Service
+The backend uses the agent orchestrators from the parent project:
+- `src/agents/sequential_workflow_orchestrator.py` - Agent Framework Sequential Workflow (default, `AGENT_SERVICE=agent-framework`)
+- `src/agents/sequential_workflow_orchestrator_foundry.py` - Azure AI Foundry Agent Service (`AGENT_SERVICE=foundry`)
+- `src/agents/orchestrator.py` - Original multi-agent workflow (legacy)
 
 Select the orchestrator via `AGENT_SERVICE` environment variable.
 

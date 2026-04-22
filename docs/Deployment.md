@@ -289,7 +289,7 @@ az staticwebapp create \
   --sku Standard
 ```
 
-#### 9. Azure Functions (Email Notifications)
+#### 9. Azure Functions — Email Notifications (Optional — not active in demo)\n\n> **Note**: The email notification function is an architectural component representing the intended production flow. It is not required for the core demo and is not deployed by default.\n
 
 ```bash
 # Create Function App

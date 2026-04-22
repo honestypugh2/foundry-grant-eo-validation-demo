@@ -3,23 +3,19 @@ Sequential Workflow Orchestrator
 Uses Agent Framework's Sequential Workflow pattern to coordinate compliance validation agents.
 """
 
+import json
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 from agent_framework import (
     Executor,
-    WorkflowBuilder,
+    Message,
     WorkflowContext,
-    WorkflowOutputEvent,
-    WorkflowStatusEvent,
-    ExecutorFailedEvent,
-    WorkflowFailedEvent,
-    WorkflowRunState,
     handler,
 )
-from typing_extensions import Never
+from agent_framework.orchestrations import SequentialBuilder
 
 from .document_ingestion_agent import DocumentIngestionAgent
 from .summarization_agent import SummarizationAgent
@@ -57,16 +53,18 @@ class DocumentIngestionExecutor(Executor):
     @handler
     async def process(
         self,
-        file_path: str,
-        ctx: WorkflowContext[WorkflowState]
+        messages: List[Message],
+        ctx: WorkflowContext[List[Message]]
     ) -> None:
         """
         Process document and forward state to next executor.
         
         Args:
-            file_path: Path to the document file
+            messages: Conversation messages (last user message contains file path)
             ctx: Workflow context for forwarding state
         """
+        # Extract file path from the last user message
+        file_path = messages[-1].text.strip()
         logger.info("Step 1: Document Ingestion")
         
         # Process document
@@ -88,8 +86,11 @@ class DocumentIngestionExecutor(Executor):
             }
         })
         
-        # Forward to next executor
-        await ctx.send_message(state)
+        # Forward state as JSON in an assistant message
+        state_json = json.dumps(state, default=str)
+        await ctx.send_message(
+            messages + [Message("assistant", [state_json], author_name="document_ingestion")]
+        )
 
 
 class SummarizationExecutor(Executor):
@@ -116,16 +117,17 @@ class SummarizationExecutor(Executor):
     @handler
     async def process(
         self,
-        state: WorkflowState,
-        ctx: WorkflowContext[WorkflowState]
+        messages: List[Message],
+        ctx: WorkflowContext[List[Message]]
     ) -> None:
         """
         Generate summary and forward updated state.
         
         Args:
-            state: Current workflow state
+            messages: Conversation messages (last assistant message contains state JSON)
             ctx: Workflow context for forwarding state
         """
+        state = WorkflowState(json.loads(messages[-1].text))
         logger.info("Step 2: Summarization")
         
         # Generate summary
@@ -143,15 +145,18 @@ class SummarizationExecutor(Executor):
             'summary': summary
         }
         
-        # Forward to next executor
-        await ctx.send_message(state)
+        # Forward state as JSON in an assistant message
+        state_json = json.dumps(state, default=str)
+        await ctx.send_message(
+            messages + [Message("assistant", [state_json], author_name="summarization")]
+        )
 
 
 class ComplianceValidationExecutor(Executor):
     """
     Executor for compliance validation step.
     Analyzes document against regulatory requirements.
-    Uses hosted Azure AI Search tool for knowledge base queries.
+    Uses Azure AI Search function tool for knowledge base queries.
     """
     
     def __init__(
@@ -159,14 +164,16 @@ class ComplianceValidationExecutor(Executor):
         project_endpoint: str,
         model_deployment_name: str,
         search_index_name: str,
-        search_connection_id: Optional[str] = None,
+        search_endpoint: Optional[str] = None,
+        search_api_key: Optional[str] = None,
         search_query_type: str = "simple",
     ):
         self.agent = ComplianceAgent(
             project_endpoint=project_endpoint,
             model_deployment_name=model_deployment_name,
             search_index_name=search_index_name,
-            search_connection_id=search_connection_id,
+            search_endpoint=search_endpoint,
+            search_api_key=search_api_key,
             search_query_type=search_query_type,
         )
         super().__init__(id="compliance_validation")
@@ -174,16 +181,17 @@ class ComplianceValidationExecutor(Executor):
     @handler
     async def process(
         self,
-        state: WorkflowState,
-        ctx: WorkflowContext[WorkflowState]
+        messages: List[Message],
+        ctx: WorkflowContext[List[Message]]
     ) -> None:
         """
         Validate compliance and forward updated state.
         
         Args:
-            state: Current workflow state
+            messages: Conversation messages (last assistant message contains state JSON)
             ctx: Workflow context for forwarding state
         """
+        state = WorkflowState(json.loads(messages[-1].text))
         logger.info("Step 3: Compliance Validation")
         
         # Analyze compliance
@@ -244,8 +252,11 @@ class ComplianceValidationExecutor(Executor):
             'report': compliance_report
         }
         
-        # Forward to next executor
-        await ctx.send_message(state)
+        # Forward state as JSON in an assistant message
+        state_json = json.dumps(state, default=str)
+        await ctx.send_message(
+            messages + [Message("assistant", [state_json], author_name="compliance_validation")]
+        )
 
     def _calculate_compliance_score_from_analysis(
         self,
@@ -549,16 +560,17 @@ class RiskScoringExecutor(Executor):
     @handler
     async def process(
         self,
-        state: WorkflowState,
-        ctx: WorkflowContext[WorkflowState]
+        messages: List[Message],
+        ctx: WorkflowContext[List[Message]]
     ) -> None:
         """
         Calculate risk score and forward updated state.
         
         Args:
-            state: Current workflow state
+            messages: Conversation messages (last assistant message contains state JSON)
             ctx: Workflow context for forwarding state
         """
+        state = WorkflowState(json.loads(messages[-1].text))
         logger.info("Step 4: Risk Scoring")
         
         # Calculate risk
@@ -580,8 +592,11 @@ class RiskScoringExecutor(Executor):
             'report': risk_report
         }
         
-        # Forward to next executor
-        await ctx.send_message(state)
+        # Forward state as JSON in an assistant message
+        state_json = json.dumps(state, default=str)
+        await ctx.send_message(
+            messages + [Message("assistant", [state_json], author_name="risk_scoring")]
+        )
 
 
 class EmailNotificationExecutor(Executor):
@@ -599,16 +614,17 @@ class EmailNotificationExecutor(Executor):
     @handler
     async def process(
         self,
-        state: WorkflowState,
-        ctx: WorkflowContext[Never, Dict[str, Any]]
+        messages: List[Message],
+        ctx: WorkflowContext[List[Message], Dict[str, Any]]
     ) -> None:
         """
         Send email notification if needed and yield final workflow output.
         
         Args:
-            state: Current workflow state
-            ctx: Workflow context for yielding output
+            messages: Conversation messages (last assistant message contains state JSON)
+            ctx: Workflow context for forwarding messages and yielding output
         """
+        state = WorkflowState(json.loads(messages[-1].text))
         logger.info("Step 5: Email Notification")
         
         email_sent = False
@@ -662,7 +678,17 @@ class EmailNotificationExecutor(Executor):
         
         logger.info(f"✓ Workflow completed successfully for {Path(state['file_path']).name}")
         
-        # Yield final output (terminal node)
+        # Add top-level keys so the extracted JSON matches final_results
+        state['status'] = 'completed'
+        state['use_azure'] = self.use_azure
+        state['email_sent'] = email_sent
+        state['overall_status'] = overall_status
+        
+        # Forward final messages and yield structured results
+        state_json = json.dumps(state, default=str)
+        await ctx.send_message(
+            messages + [Message("assistant", [state_json], author_name="email_notification")]
+        )
         await ctx.yield_output(final_results)
     
     def _determine_overall_status(
@@ -731,13 +757,14 @@ class SequentialWorkflowOrchestrator:
             api_key=self.api_key
         )
         
-        # ComplianceValidationExecutor uses hosted Azure AI Search tool
-        # Requires AI_SEARCH_PROJECT_CONNECTION_ID to be set in the Azure AI Foundry project
+        # ComplianceValidationExecutor uses Azure AI Search function tool
+        # Requires AZURE_SEARCH_ENDPOINT to be set
         compliance_executor = ComplianceValidationExecutor(
             project_endpoint=self.project_endpoint,
             model_deployment_name=self.deployment_name,
             search_index_name=self.search_index,
-            search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),
+            search_endpoint=self.search_endpoint,
+            search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
             search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
         )
         
@@ -750,15 +777,15 @@ class SequentialWorkflowOrchestrator:
         )
         
         # Build sequential workflow: doc -> summary -> compliance -> risk -> email
-        workflow = (
-            WorkflowBuilder()
-            .set_start_executor(doc_executor)
-            .add_edge(doc_executor, summary_executor)
-            .add_edge(summary_executor, compliance_executor)
-            .add_edge(compliance_executor, risk_executor)
-            .add_edge(risk_executor, email_executor)
-            .build()
-        )
+        workflow = SequentialBuilder(
+            participants=[
+                doc_executor,
+                summary_executor,
+                compliance_executor,
+                risk_executor,
+                email_executor,
+            ]
+        ).build()
         
         return workflow
     
@@ -788,35 +815,45 @@ class SequentialWorkflowOrchestrator:
             workflow = self._build_workflow()
             
             # Run workflow with streaming
-            output_event: WorkflowOutputEvent | None = None
+            output_data = None
             
-            async for event in workflow.run_stream(file_path):
-                if isinstance(event, WorkflowStatusEvent):
-                    if event.state == WorkflowRunState.IN_PROGRESS:
-                        logger.debug("Workflow state: IN_PROGRESS")
-                    elif event.state == WorkflowRunState.IDLE:
-                        logger.debug("Workflow state: IDLE")
+            async for event in workflow.run(file_path, stream=True):
+                if event.type == "status":
+                    logger.debug(f"Workflow state: {event.data}")
                 
-                elif isinstance(event, WorkflowOutputEvent):
-                    output_event = event
+                elif event.type == "output":
+                    output_data = event.data
                     logger.info("Workflow output received")
                 
-                elif isinstance(event, ExecutorFailedEvent):
+                elif event.type == "executor_failed":
+                    details = event.data
                     logger.error(
-                        f"Executor failed: {event.executor_id} - "
-                        f"{event.details.error_type}: {event.details.message}"
+                        f"Executor failed: {getattr(details, 'executor_id', 'unknown')} - "
+                        f"{getattr(details, 'error_type', 'Error')}: {getattr(details, 'message', str(details))}"
                     )
-                    raise Exception(f"Executor {event.executor_id} failed: {event.details.message}")
+                    raise Exception(f"Executor failed: {getattr(details, 'message', str(details))}")
                 
-                elif isinstance(event, WorkflowFailedEvent):
+                elif event.type == "failed":
+                    details = event.data
                     logger.error(
-                        f"Workflow failed: {event.details.error_type}: {event.details.message}"
+                        f"Workflow failed: {getattr(details, 'error_type', 'Error')}: {getattr(details, 'message', str(details))}"
                     )
-                    raise Exception(f"Workflow failed: {event.details.message}")
+                    raise Exception(f"Workflow failed: {getattr(details, 'message', str(details))}")
             
             # Extract final results from output event
-            if output_event and output_event.data is not None:
-                return output_event.data
+            # SequentialBuilder emits list[Message] as the output event data.
+            # The actual results dict is JSON-encoded in the last assistant message
+            # (written by EmailNotificationExecutor).
+            if output_data is not None:
+                if isinstance(output_data, list):
+                    for msg in reversed(output_data):
+                        if hasattr(msg, 'text') and msg.text:
+                            try:
+                                return json.loads(msg.text)
+                            except (json.JSONDecodeError, TypeError):
+                                continue
+                    raise Exception("Could not extract results from workflow output messages")
+                return output_data
             else:
                 raise Exception("No workflow output received")
         

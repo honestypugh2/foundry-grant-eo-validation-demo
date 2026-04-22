@@ -4,11 +4,13 @@ Generates concise summaries of proposal sections and highlights key clauses.
 """
 
 import os
+import json
 import logging
 import asyncio
 from typing import Annotated, Dict, Any, List, Optional
-from agent_framework.azure import AzureAIProjectAgentProvider
-from azure.identity.aio import AzureCliCredential
+from agent_framework import Agent, tool
+from agent_framework.foundry import FoundryChatClient
+from azure.identity import AzureCliCredential
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +41,6 @@ class SummarizationAgent:
         self.model_deployment_name = model_deployment_name
         self.use_managed_identity = use_managed_identity
         
-        # NOTE: Credentials are created fresh in each async method to avoid
-        # pickle errors with asyncio.Task objects when workflow framework
-        # serializes executor state between steps.
-        
         # Agent instructions
         self.instructions = """You are an expert grant proposal analyst specializing in document summarization.
 
@@ -70,17 +68,13 @@ Output should include:
 - Key Clauses: Specific text that may require review
 """
 
+    @staticmethod
+    @tool(name="extract_document_info", description="Extract and format basic document information for context. This tool helps the agent understand the document's basic properties.")
     def extract_document_info(
-        self,
         metadata: Annotated[str, "JSON string containing document metadata like file_name, page_count, word_count"]
     ) -> str:
-        """
-        Extract and format basic document information for context.
-        
-        This tool helps the agent understand the document's basic properties.
-        """
+        """Extract and format basic document information for context."""
         try:
-            import json
             meta = json.loads(metadata)
         except Exception:
             meta = {}
@@ -113,26 +107,24 @@ Output should include:
         logger.info("Generating document summary")
         
         try:
-            # Create credentials fresh to avoid pickle errors with asyncio.Task objects
-            # when workflow framework serializes executor state between steps
-            # Following official sample pattern:
-            # https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/agents/azure_ai/azure_ai_provider_methods.py
-            async with (
-                AzureCliCredential() as credential,
-                AzureAIProjectAgentProvider(credential=credential) as provider,
-            ):
-                agent = await provider.create_agent(
-                    name="SummarizationAgent",
-                    instructions=self.instructions,
-                    description="Summarization agent for grant proposals - generates concise summaries and extracts key clauses",
-                    tools=[self.extract_document_info],
-                )
-                # Build metadata JSON for the tool
-                import json
-                metadata_json = json.dumps(metadata)
-                
-                # Build summarization prompt
-                prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
+            client = FoundryChatClient(
+                project_endpoint=self.project_endpoint,
+                model=self.model_deployment_name,
+                credential=AzureCliCredential(),
+            )
+
+            agent = Agent(
+                client=client,
+                name="SummarizationAgent",
+                instructions=self.instructions,
+                tools=[self.extract_document_info],
+            )
+
+            # Build metadata JSON for the tool
+            metadata_json = json.dumps(metadata)
+            
+            # Build summarization prompt
+            prompt = f"""Analyze the following grant proposal and provide a comprehensive summary.
 
 GRANT PROPOSAL TEXT:
 {document_text}
@@ -158,11 +150,11 @@ Focus especially on identifying clauses related to:
 Structure your response clearly with section headers.
 """
 
-                # Get summary from agent
-                response_text = ""
-                async for chunk in agent.run_stream(prompt):
-                    if chunk.text:
-                        response_text += chunk.text
+            # Get summary from agent via streaming
+            response_text = ""
+            async for chunk in agent.run(prompt, stream=True):
+                if chunk.text:
+                    response_text += chunk.text
             
             # Parse response into structured format
             summary_data = self._parse_summary_response(response_text)
@@ -358,8 +350,6 @@ Structure your response clearly with section headers.
     
     async def cleanup(self):
         """Clean up resources."""
-        # Provider and credentials are managed via async context manager in each method call
-        # No persistent resources to clean up
         logger.info("SummarizationAgent cleaned up")
 
 

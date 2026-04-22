@@ -1,13 +1,12 @@
-import axios from 'axios';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+  return response.json();
+}
 
 export interface AzureServiceStatus {
   azure_openai: boolean;
@@ -34,65 +33,47 @@ export interface ProcessDocumentRequest {
 }
 
 export const api = {
-  // Health check
   healthCheck: async () => {
-    const response = await apiClient.get('/api/health');
-    return response.data;
+    return request<any>('/api/health');
   },
 
-  // Get orchestrator configuration
   getOrchestratorConfig: async (): Promise<OrchestratorConfig> => {
-    const response = await apiClient.get('/api/config/orchestrator');
-    return response.data;
+    return request<OrchestratorConfig>('/api/config/orchestrator');
   },
 
-  // Azure services status
   getAzureStatus: async (): Promise<AzureServiceStatus> => {
-    const response = await apiClient.get('/api/azure/status');
-    return response.data;
+    return request<AzureServiceStatus>('/api/azure/status');
   },
 
-  // Upload and process document
   uploadDocument: async (file: File, options: ProcessDocumentRequest) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('send_email', options.send_email.toString());
     formData.append('use_azure', options.use_azure.toString());
 
-    const response = await apiClient.post('/api/process/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+    return request<any>('/api/process/upload', {
+      method: 'POST',
+      body: formData,
     });
-    return response.data;
   },
 
-  // Process sample document
   processSample: async (sampleName: string, options: ProcessDocumentRequest) => {
-    const response = await apiClient.post('/api/process/sample', {
-      sample_name: sampleName,
-      ...options,
+    return request<any>('/api/process/sample', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sample_name: sampleName, ...options }),
     });
-    return response.data;
   },
 
-  // Get knowledge base info
   getKnowledgeBase: async () => {
-    const response = await apiClient.get('/api/knowledge-base');
-    return response.data;
+    return request<any>('/api/knowledge-base');
   },
 
-  // Get executive order content
   getExecutiveOrder: async (name: string) => {
-    const response = await apiClient.get(`/api/knowledge-base/executive-order/${name}`);
-    return response.data;
+    return request<any>(`/api/knowledge-base/executive-order/${encodeURIComponent(name)}`);
   },
 
-  // Get sample proposals
   getSampleProposals: async () => {
-    const response = await apiClient.get('/api/knowledge-base/samples');
-    return response.data;
+    return request<any>('/api/knowledge-base/samples');
   },
 };
-
-export default apiClient;

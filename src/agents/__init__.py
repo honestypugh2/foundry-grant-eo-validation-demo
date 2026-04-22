@@ -2,6 +2,10 @@
 Grant Proposal Compliance Automation Agents
 
 This package contains all the AI agents for the compliance validation system.
+
+Two orchestration patterns are available:
+  Agent Framework (default): compliance_agent.py, summarization_agent.py, sequential_workflow_orchestrator.py
+  Foundry Agent Service:     *_foundry.py variants — set AGENT_SERVICE=foundry in .env
 """
 
 from .document_ingestion_agent import DocumentIngestionAgent

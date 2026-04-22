@@ -1,6 +1,6 @@
 """
 Sequential Workflow Orchestrator using Azure AI Foundry Agent Service
-Uses azure-ai-projects SDK workflow pattern for multi-agent coordination.
+Uses azure-ai-projects SDK (>=2.0.1) workflow pattern for multi-agent coordination.
 
 This is an alternative implementation to sequential_workflow_orchestrator.py which uses agent-framework.
 Set AGENT_SERVICE=foundry in .env to use this implementation.
@@ -15,12 +15,12 @@ from pathlib import Path
 from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import (
     PromptAgentDefinition,
-    AzureAISearchAgentTool,
+    AzureAISearchTool,
     AzureAISearchToolResource,
     AISearchIndexResource,
     AzureAISearchQueryType,
 )
-from azure.identity.aio import AzureCliCredential, ManagedIdentityCredential
+from azure.identity.aio import DefaultAzureCredential
 
 from .document_ingestion_agent import DocumentIngestionAgent
 from .risk_scoring_agent import RiskScoringAgent
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class SequentialWorkflowOrchestratorFoundry:
     """
     Sequential Workflow Orchestrator using Azure AI Foundry Agent Service.
-    Coordinates compliance validation through agents using azure-ai-projects SDK.
+    Coordinates compliance validation through agents using azure-ai-projects SDK (>=2.0.1).
     """
     
     def __init__(self, use_azure: bool = False, send_email: bool = False):
@@ -109,12 +109,12 @@ Output Format:
 - Recommendations: [Actions needed]
 """
 
-    def _build_azure_ai_search_tool(self) -> AzureAISearchAgentTool:
+    def _build_azure_ai_search_tool(self) -> AzureAISearchTool:
         """Build the Azure AI Search tool for compliance agent."""
         if not self.search_connection_id:
             raise ValueError("AI_SEARCH_PROJECT_CONNECTION_ID must be set for Foundry Agent Service")
         
-        return AzureAISearchAgentTool(
+        return AzureAISearchTool(
             azure_ai_search=AzureAISearchToolResource(
                 indexes=[
                     AISearchIndexResource(
@@ -164,12 +164,7 @@ Output Format:
             logger.info(f"✓ Document ingested: {metadata.get('word_count', 0)} words")
             
             # Create Foundry client for AI agent steps
-            # Use ChainedTokenCredential: AzureCliCredential for local dev, ManagedIdentityCredential for Azure
-            use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "true").lower() == "true"
-            if use_managed_identity:
-                credential = ManagedIdentityCredential()
-            else:
-                credential = AzureCliCredential()
+            credential = DefaultAzureCredential(exclude_environment_credential=True)
             
             async with (
                 credential,
@@ -208,7 +203,7 @@ Provide Executive Summary, Key Objectives, Budget Highlights, Timeline, Key Topi
                         summary_text = ""
                         stream = await openai_client.responses.create(
                             conversation=summary_conv.id,
-                            extra_body={"agent": {"name": summary_agent.name, "type": "agent_reference"}},
+                            extra_body={"agent_reference": {"name": summary_agent.name, "type": "agent_reference"}},
                             input=summary_prompt,
                             stream=True,
                         )
@@ -274,7 +269,7 @@ Include Compliance Status, Confidence Score (0-100), Key Findings, Relevant Exec
                         compliance_text = ""
                         stream = await openai_client.responses.create(
                             conversation=compliance_conv.id,
-                            extra_body={"agent": {"name": compliance_agent.name, "type": "agent_reference"}},
+                            extra_body={"agent_reference": {"name": compliance_agent.name, "type": "agent_reference"}},
                             input=compliance_prompt,
                             stream=True,
                             tool_choice="required",
@@ -826,7 +821,7 @@ RISK ASSESSMENT
 ---------------
 Overall Score: {risk['overall_score']:.1f}%
 Risk Level: {risk['risk_level'].upper()}
-Confidence: {risk['confidence']:.1f}%
+Confidence: {risk.get('assessment_certainty', risk.get('confidence', 0)):.1f}%
 
 COMPLIANCE STATUS
 -----------------

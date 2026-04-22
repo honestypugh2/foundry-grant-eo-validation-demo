@@ -3,7 +3,7 @@
 This document covers **two orchestrator implementations** that provide modular, pipeline-based approaches to coordinating the compliance validation workflow:
 
 1. **Sequential Workflow Orchestrator** (Agent Framework) - Uses Microsoft Agent Framework's `WorkflowBuilder` pattern
-2. **Sequential Workflow Orchestrator Foundry** (Azure AI Projects SDK) - Uses Azure AI Foundry Agent Service
+2. **Sequential Workflow Orchestrator Foundry** (Azure AI Projects SDK) - Uses Azure AI Foundry Agent Service with **Prompt agents**
 
 ## Overview
 
@@ -12,8 +12,12 @@ Both orchestrators process documents through a sequential pipeline where each ag
 ### Agent Framework Version
 The `SequentialWorkflowOrchestrator` uses Agent Framework's `WorkflowBuilder` and `Executor` patterns to create a pipeline where each agent processes the task in turn, with output flowing from one to the next.
 
-### Foundry Version  
-The `SequentialWorkflowOrchestratorFoundry` uses the `azure-ai-projects` SDK to create agents directly in Azure AI Foundry. Agents can optionally persist in the Foundry portal for debugging and monitoring.
+### Foundry Version (Prompt Agents)
+The `SequentialWorkflowOrchestratorFoundry` uses the `azure-ai-projects` SDK to create **[Prompt agents](https://learn.microsoft.com/en-us/azure/foundry/agents/overview#prompt-agents)** directly in Azure AI Foundry. These are agents defined entirely through configuration — instructions, model selection, and tools — using `PromptAgentDefinition`. Agent Service handles the orchestration and hosting automatically.
+
+Agents can optionally persist in the Foundry portal for debugging and monitoring.
+
+> **Agent Type Clarification**: This implementation uses **Prompt agents**, not **[Workflow agents (preview)](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/workflow)** or **[Hosted agents (preview)](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)**. The sequential coordination is handled by Python code, while each individual AI step is a Prompt agent. For a consolidated single-agent approach, see [PromptAgentRestructuring.md](PromptAgentRestructuring.md).
 
 ### Selecting an Orchestrator
 
@@ -133,7 +137,7 @@ When enabled:
 The compliance agent uses Azure AI Search as a tool:
 
 ```python
-AzureAISearchAgentTool(
+AzureAISearchTool(
     tool_resources=AzureAISearchToolResource(
         indexes=[AISearchIndexResource(
             index_connection_id=connection_id,
