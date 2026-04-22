@@ -85,7 +85,7 @@ class KnowledgeBaseIndexer:
                     raise ValueError("Managed Identity failed and no AZURE_SEARCH_API_KEY provided")
         else:
             if not search_key:
-                raise ValueError("AZURE_SEARCH_API_KEY environment variable iIs required when not using managed identity")
+                raise ValueError("AZURE_SEARCH_API_KEY environment variable is required when not using managed identity")
             self.search_credential = AzureKeyCredential(search_key)
             self.credential = AzureKeyCredential(doc_intel_key) if doc_intel_key else None
         

@@ -469,7 +469,7 @@ async def main():
     print(f"Confidence: {result['confidence_score']}%")
     print(f"\nRelevant EOs: {len(result['relevant_executive_orders'])}")
     for eo in result['relevant_executive_orders']:
-        print(f"  - EO {eo['eo_number']}: {eo['title']}")
+        print(f"  - EO {eo.get('number', 'N/A')}: {eo['title']}")
     print(f"\n{result['analysis'][:1000]}...")
     
     await agent.cleanup()

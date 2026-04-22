@@ -63,12 +63,13 @@ async def main():
         api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
     )
 
-    # Initialize ComplianceAgent with hosted Azure AI Search tool
+    # Initialize ComplianceAgent with Azure AI Search
     compliance_agent = ComplianceAgent(
         project_endpoint=project_endpoint,
         model_deployment_name=deployment_name,
         search_index_name=search_index,
-        search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),
+        search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+        search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
         search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
     )
 
@@ -101,8 +102,8 @@ async def main():
         document_data['text'],
         context=metadata
     )
-    compliance_score = compliance_report.get('compliance_score', compliance_report.get('confidence_score', 0))
-    status = compliance_report.get('overall_status', compliance_report.get('status', 'unknown'))
+    compliance_score = compliance_report.get('confidence_score', 0)
+    status = compliance_report.get('status', 'unknown')
     print(f'   ✅ Compliance: {compliance_score:.1f}% ({status})')
     
     # Step 4: Risk Scoring

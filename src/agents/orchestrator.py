@@ -52,13 +52,14 @@ class AgentOrchestrator:
             api_key=os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_AI_FOUNDRY_API_KEY"),
         )
         
-        # ComplianceAgent now uses hosted Azure AI Search tool
-        # Requires AI_SEARCH_PROJECT_CONNECTION_ID to be configured in Azure AI Foundry project
+        # ComplianceAgent uses Azure AI Search SDK directly (function tool)
+        # Requires AZURE_SEARCH_ENDPOINT to be set
         self.compliance_agent = ComplianceAgent(
             project_endpoint=project_endpoint,
             model_deployment_name=deployment_name,
             search_index_name=search_index,
-            search_connection_id=os.getenv("AI_SEARCH_PROJECT_CONNECTION_ID"),
+            search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+            search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
             search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
         )
         

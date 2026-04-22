@@ -52,7 +52,6 @@ async def test_compliance_agent():
     project_endpoint = os.getenv('AZURE_AI_FOUNDRY_PROJECT_ENDPOINT') or os.getenv('AZURE_AI_PROJECT_ENDPOINT', '')
     deployment_name = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME') or os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4')
     search_index = os.getenv('AZURE_SEARCH_INDEX_NAME') or os.getenv('AZURE_SEARCH_INDEX', 'grant-compliance-index')
-    search_connection_id = os.getenv('AI_SEARCH_PROJECT_CONNECTION_ID', '')
     search_query_type = os.getenv('AI_SEARCH_QUERY_TYPE', 'simple')
     
     print(f"   Project Endpoint: {project_endpoint[:50]}..." if project_endpoint else "   Project Endpoint: Not set")
@@ -63,7 +62,8 @@ async def test_compliance_agent():
         project_endpoint=project_endpoint,
         model_deployment_name=deployment_name,
         search_index_name=search_index,
-        search_connection_id=search_connection_id,
+        search_endpoint=os.getenv('AZURE_SEARCH_ENDPOINT'),
+        search_api_key=os.getenv('AZURE_SEARCH_API_KEY'),
         search_query_type=search_query_type
     )
     print("   ✅ Agent initialized successfully")

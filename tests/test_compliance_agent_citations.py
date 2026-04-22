@@ -51,7 +51,7 @@ async def test_knowledge_base_search(agent: ComplianceAgent):
         
         try:
             # Call the search tool directly
-            results = await agent.search_knowledge_base(test['query'])
+            results = await agent.search_executive_orders(test['query'])
             
             # Parse and display results
             if "No relevant executive orders found" in results:
@@ -313,21 +313,21 @@ async def test_citation_structure(agent: ComplianceAgent):
         
         print("   ✅ Citation created successfully")
         print("\n   Citation Details:")
-        print(f"   Title: {citation.title}")
-        print(f"   URL: {citation.url}")
-        print(f"   Tool: {citation.tool_name}")
-        print(f"   Snippet: {citation.snippet}")
-        print(f"   File ID: {citation.file_id}")
+        print(f"   Title: {citation['title']}")
+        print(f"   URL: {citation['url']}")
+        print(f"   Tool: {citation['tool_name']}")
+        print(f"   Snippet: {citation['snippet']}")
+        print(f"   File ID: {citation['file_id']}")
         
-        if hasattr(citation, 'additional_properties') and citation.additional_properties:
+        if citation.get('additional_properties'):
             print("   Additional Properties:")
-            for key, value in citation.additional_properties.items():
+            for key, value in citation['additional_properties'].items():
                 print(f"      - {key}: {value}")
         
-        if hasattr(citation, 'annotated_regions') and citation.annotated_regions:
-            print(f"   Text Regions: {len(citation.annotated_regions)} region(s)")
-            for region in citation.annotated_regions:
-                print(f"      - Start: {region.start_index}, End: {region.end_index}")
+        if citation.get('annotated_regions'):
+            print(f"   Text Regions: {len(citation['annotated_regions'])} region(s)")
+            for region in citation['annotated_regions']:
+                print(f"      - Start: {region.get('start_index')}, End: {region.get('end_index')}")
         
         print("\n   ✅ Citation structure is properly formatted")
         
@@ -387,8 +387,6 @@ async def main():
                 model_deployment_name=config['deployment_name'] or 'gpt-4',
                 search_endpoint=config['search_endpoint'],
                 search_index_name=config['search_index'] or 'grant-compliance-index',
-                azure_search_document_truncation_size=int(os.getenv('AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE', '2000')),
-                use_managed_identity=True
             )
         else:
             print("   Authentication: API Key")
@@ -397,9 +395,7 @@ async def main():
                 model_deployment_name=config['deployment_name'] or 'gpt-4',
                 search_endpoint=config['search_endpoint'],
                 search_index_name=config['search_index'] or 'grant-compliance-index',
-                azure_search_document_truncation_size=int(os.getenv('AZURE_SEARCH_DOCUMENT_CONTENT_TRUNCATION_SIZE', '2000')),
-                use_managed_identity=False,
-                search_api_key=os.getenv('AZURE_SEARCH_API_KEY')
+                search_api_key=os.getenv('AZURE_SEARCH_API_KEY'),
             )
         print("   ✅ Agent initialized successfully\n")
         

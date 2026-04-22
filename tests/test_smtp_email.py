@@ -170,7 +170,6 @@ def test_smtp_email():
     
     # Prepare email
     email_data = agent.prepare_email(
-        proposal_filename='TEST_High_Risk_Proposal.pdf', # type: ignore
         risk_report=mock_risk_report,
         compliance_report=mock_compliance_report,
         summary=mock_summary,

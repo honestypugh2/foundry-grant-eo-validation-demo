@@ -81,9 +81,6 @@ dist-ssr/
 # TypeScript
 *.tsbuildinfo
 
-# Streamlit
-.streamlit/secrets.toml
-
 # OS specific
 Thumbs.db
 

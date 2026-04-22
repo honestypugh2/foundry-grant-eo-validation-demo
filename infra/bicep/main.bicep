@@ -421,7 +421,7 @@ resource grantComplianceFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFu
       deployment: {
         storage: {
           type: 'blobContainer'
-          value: '${functionStorageAccount.properties.primaryEndpoints.blob}deploymentpackage'
+          value: '${functionStorageAccount!.properties.primaryEndpoints.blob}deploymentpackage'
           authentication: {
             type: 'SystemAssignedIdentity'
           }
@@ -440,7 +440,7 @@ resource grantComplianceFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFu
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appSettings: [
-        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount.name }
+        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount!.name }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
         { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryResource.properties.endpoint }
@@ -473,7 +473,7 @@ resource emailNotifierFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunc
       deployment: {
         storage: {
           type: 'blobContainer'
-          value: '${functionStorageAccount.properties.primaryEndpoints.blob}deploymentpackage'
+          value: '${functionStorageAccount!.properties.primaryEndpoints.blob}deploymentpackage'
           authentication: {
             type: 'SystemAssignedIdentity'
           }
@@ -492,7 +492,7 @@ resource emailNotifierFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunc
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       appSettings: [
-        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount.name }
+        { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount!.name }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
         { name: 'USE_MANAGED_IDENTITY', value: 'true' }
@@ -504,10 +504,10 @@ resource emailNotifierFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunc
 // RBAC: Grant Compliance Function → OpenAI
 resource complianceFunctionToOpenAI 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: aiFoundryResource
-  name: guid(aiFoundryResource.id, grantComplianceFunction.id, cognitiveServicesOpenAIUserRole)
+  name: guid(aiFoundryResource.id, grantComplianceFunction!.id, cognitiveServicesOpenAIUserRole)
   properties: {
     roleDefinitionId: cognitiveServicesOpenAIUserRole
-    principalId: grantComplianceFunction.identity!.principalId
+    principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -515,10 +515,10 @@ resource complianceFunctionToOpenAI 'Microsoft.Authorization/roleAssignments@202
 // RBAC: Grant Compliance Function → AI Search
 resource complianceFunctionToSearch 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: searchService
-  name: guid(searchService.id, grantComplianceFunction.id, searchIndexDataContributorRole)
+  name: guid(searchService.id, grantComplianceFunction!.id, searchIndexDataContributorRole)
   properties: {
     roleDefinitionId: searchIndexDataContributorRole
-    principalId: grantComplianceFunction.identity!.principalId
+    principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -526,10 +526,10 @@ resource complianceFunctionToSearch 'Microsoft.Authorization/roleAssignments@202
 // RBAC: Grant Compliance Function → Function Storage (Blob Data Owner)
 resource complianceFunctionToStorage 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageBlobDataOwnerRole)
+  name: guid(functionStorageAccount!.id, grantComplianceFunction!.id, storageBlobDataOwnerRole)
   properties: {
     roleDefinitionId: storageBlobDataOwnerRole
-    principalId: grantComplianceFunction.identity!.principalId
+    principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -537,10 +537,10 @@ resource complianceFunctionToStorage 'Microsoft.Authorization/roleAssignments@20
 // RBAC: Email Notifier Function → Function Storage (Blob Data Owner)
 resource emailFunctionToStorage 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageBlobDataOwnerRole)
+  name: guid(functionStorageAccount!.id, emailNotifierFunction!.id, storageBlobDataOwnerRole)
   properties: {
     roleDefinitionId: storageBlobDataOwnerRole
-    principalId: emailNotifierFunction.identity!.principalId
+    principalId: emailNotifierFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -548,10 +548,10 @@ resource emailFunctionToStorage 'Microsoft.Authorization/roleAssignments@2022-04
 // RBAC: Grant Compliance Function → Function Storage (Queue Data Contributor)
 resource complianceFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageQueueDataContributorRole)
+  name: guid(functionStorageAccount!.id, grantComplianceFunction!.id, storageQueueDataContributorRole)
   properties: {
     roleDefinitionId: storageQueueDataContributorRole
-    principalId: grantComplianceFunction.identity!.principalId
+    principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -559,10 +559,10 @@ resource complianceFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022
 // RBAC: Email Notifier Function → Function Storage (Queue Data Contributor)
 resource emailFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageQueueDataContributorRole)
+  name: guid(functionStorageAccount!.id, emailNotifierFunction!.id, storageQueueDataContributorRole)
   properties: {
     roleDefinitionId: storageQueueDataContributorRole
-    principalId: emailNotifierFunction.identity!.principalId
+    principalId: emailNotifierFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -570,10 +570,10 @@ resource emailFunctionToQueue 'Microsoft.Authorization/roleAssignments@2022-04-0
 // RBAC: Grant Compliance Function → Function Storage (Table Data Contributor)
 resource complianceFunctionToTable 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, grantComplianceFunction.id, storageTableDataContributorRole)
+  name: guid(functionStorageAccount!.id, grantComplianceFunction!.id, storageTableDataContributorRole)
   properties: {
     roleDefinitionId: storageTableDataContributorRole
-    principalId: grantComplianceFunction.identity!.principalId
+    principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -581,10 +581,10 @@ resource complianceFunctionToTable 'Microsoft.Authorization/roleAssignments@2022
 // RBAC: Email Notifier Function → Function Storage (Table Data Contributor)
 resource emailFunctionToTable 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
   scope: functionStorageAccount
-  name: guid(functionStorageAccount.id, emailNotifierFunction.id, storageTableDataContributorRole)
+  name: guid(functionStorageAccount!.id, emailNotifierFunction!.id, storageTableDataContributorRole)
   properties: {
     roleDefinitionId: storageTableDataContributorRole
-    principalId: emailNotifierFunction.identity!.principalId
+    principalId: emailNotifierFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -826,11 +826,11 @@ output applicationInsightsConnectionString string = applicationInsights.properti
 output applicationInsightsInstrumentationKey string = applicationInsights.properties.InstrumentationKey
 
 // Function App outputs
-output grantComplianceFunctionName string = deployFunctionApps ? grantComplianceFunction.name : ''
-output grantComplianceFunctionUri string = deployFunctionApps ? 'https://${grantComplianceFunction.properties.defaultHostName}' : ''
-output emailNotifierFunctionName string = deployFunctionApps ? emailNotifierFunction.name : ''
-output emailNotifierFunctionUri string = deployFunctionApps ? 'https://${emailNotifierFunction.properties.defaultHostName}' : ''
-output durableTaskSchedulerName string = deployFunctionApps ? durableTaskScheduler.name : ''
+output grantComplianceFunctionName string = deployFunctionApps ? grantComplianceFunction!.name : ''
+output grantComplianceFunctionUri string = deployFunctionApps ? 'https://${grantComplianceFunction!.properties.defaultHostName}' : ''
+output emailNotifierFunctionName string = deployFunctionApps ? emailNotifierFunction!.name : ''
+output emailNotifierFunctionUri string = deployFunctionApps ? 'https://${emailNotifierFunction!.properties.defaultHostName}' : ''
+output durableTaskSchedulerName string = deployFunctionApps ? durableTaskScheduler!.name : ''
 
 // App Service outputs (not deployed — run locally)
 output backendUri string = 'Run locally: http://localhost:8000'

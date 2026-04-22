@@ -6,7 +6,7 @@ using the Agent Framework + Durable Task extension.
 
 Architecture
 ────────────
-  Durable agents (HTTP endpoints + orchestration participants):
+  Durable agents (invoked inside the orchestration via app.get_agent):
     • SummarizationAgent  – summarises grant proposals
     • ComplianceAgent     – analyses proposals against executive orders via AI Search
 
@@ -35,18 +35,18 @@ Local dev:
     4.  DTS dashboard: http://localhost:8082
 """
 
-import asyncio
 import json
 import logging
 import os
-from typing import Annotated
+from collections.abc import Generator
+from typing import Annotated, Any
 
-import azure.durable_functions as df
 import azure.functions as func
-from agent_framework import tool
-from agent_framework.azure import AgentFunctionApp
-from agent_framework.openai import OpenAIChatCompletionClient
-from azure.identity import DefaultAzureCredential
+from agent_framework import Agent, tool
+from agent_framework_azurefunctions import AgentFunctionApp
+from agent_framework.foundry import FoundryChatClient
+from azure.durable_functions import DurableOrchestrationClient, DurableOrchestrationContext
+from azure.identity.aio import AzureCliCredential
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +55,18 @@ logger = logging.getLogger(__name__)
 # ───────────────────────────────────────────────────────────────────────────
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_MODEL = os.getenv(
-    "AZURE_OPENAI_DEPLOYMENT_NAME",
-    os.getenv("AZURE_OPENAI_CHAT_COMPLETION_MODEL", "gpt-4o"),
+    "FOUNDRY_MODEL",
+    os.getenv(
+        "AZURE_OPENAI_DEPLOYMENT_NAME",
+        os.getenv("AZURE_OPENAI_CHAT_COMPLETION_MODEL", "gpt-4o"),
+    ),
 )
-AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 PROJECT_ENDPOINT = os.getenv(
-    "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT",
-    os.getenv("AZURE_AI_PROJECT_ENDPOINT", ""),
+    "FOUNDRY_PROJECT_ENDPOINT",
+    os.getenv(
+        "AZURE_AI_FOUNDRY_PROJECT_ENDPOINT",
+        os.getenv("AZURE_AI_PROJECT_ENDPOINT", ""),
+    ),
 )
 AZURE_SEARCH_ENDPOINT = os.getenv("AZURE_SEARCH_ENDPOINT", "")
 AZURE_SEARCH_INDEX = os.getenv(
@@ -123,12 +128,13 @@ def search_executive_orders(
 ) -> str:
     """Search the executive orders knowledge base using Azure AI Search."""
     from azure.core.credentials import AzureKeyCredential
+    from azure.identity import DefaultAzureCredential
     from azure.search.documents import SearchClient
 
     if not AZURE_SEARCH_ENDPOINT:
         return "Error: Azure AI Search endpoint not configured. Set AZURE_SEARCH_ENDPOINT."
 
-    credential = (
+    credential: Any = (
         AzureKeyCredential(AZURE_SEARCH_API_KEY)
         if AZURE_SEARCH_API_KEY
         else DefaultAzureCredential()
@@ -271,43 +277,61 @@ Output Format:
 
 # ───────────────────────────────────────────────────────────────────────────
 # Create Durable Agents
+# Uses FoundryChatClient (recommended by Agent Framework hosting docs)
+# for Foundry project integration, tracing, and observability.
+# Uses async AzureCliCredential as recommended by official samples.
 # ───────────────────────────────────────────────────────────────────────────
 
-_credential = DefaultAzureCredential()
+_credential = AzureCliCredential()
 
-_chat_client = OpenAIChatCompletionClient(
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    model=AZURE_OPENAI_MODEL,
-    api_version=AZURE_OPENAI_API_VERSION,
-    credential=_credential,
-)
+# Agent names referenced in the orchestration
+SUMMARIZATION_AGENT_NAME = "SummarizationAgent"
+COMPLIANCE_AGENT_NAME = "ComplianceAgent"
 
-# SummarizationAgent – has document-info extraction tool
-_summarization_agent = _chat_client.as_agent(
-    name="SummarizationAgent",
-    instructions=SUMMARIZATION_INSTRUCTIONS,
-    tools=[extract_document_info],
-)
 
-# ComplianceAgent – has AI Search + context-formatting tools
-_compliance_agent = _chat_client.as_agent(
-    name="ComplianceAgent",
-    instructions=COMPLIANCE_INSTRUCTIONS,
-    tools=[search_executive_orders, format_grant_context],
-)
+def _create_summarization_agent() -> Any:
+    """Create the SummarizationAgent with document-info extraction tool."""
+    return Agent(
+        client=FoundryChatClient(
+            project_endpoint=PROJECT_ENDPOINT,
+            model=AZURE_OPENAI_MODEL,
+            credential=_credential,
+        ),
+        name=SUMMARIZATION_AGENT_NAME,
+        instructions=SUMMARIZATION_INSTRUCTIONS,
+        tools=[extract_document_info],
+    )
+
+
+def _create_compliance_agent() -> Any:
+    """Create the ComplianceAgent with AI Search + context-formatting tools."""
+    return Agent(
+        client=FoundryChatClient(
+            project_endpoint=PROJECT_ENDPOINT,
+            model=AZURE_OPENAI_MODEL,
+            credential=_credential,
+        ),
+        name=COMPLIANCE_AGENT_NAME,
+        instructions=COMPLIANCE_INSTRUCTIONS,
+        tools=[search_executive_orders, format_grant_context],
+    )
 
 # ───────────────────────────────────────────────────────────────────────────
 # Function App  (AgentFunctionApp auto-creates HTTP endpoints per agent)
 # ───────────────────────────────────────────────────────────────────────────
 
-app = AgentFunctionApp(agents=[_summarization_agent, _compliance_agent])
+app = AgentFunctionApp(
+    agents=[_create_summarization_agent(), _create_compliance_agent()],
+    enable_health_check=True,
+    max_poll_retries=50,
+)
 
 # Auto-created endpoints:
 #   POST /api/agents/SummarizationAgent/run
 #   POST /api/agents/ComplianceAgent/run
 
 # ───────────────────────────────────────────────────────────────────────────
-# Activity Functions  (non-LLM processing steps)
+# Activity Functions  (non-LLM processing steps only)
 # ───────────────────────────────────────────────────────────────────────────
 
 
@@ -326,42 +350,6 @@ def ingest_document(filePath: str) -> str:
     return json.dumps(
         {"document_data": document_data, "metadata": metadata}, default=str
     )
-
-
-@app.activity_trigger(input_name="input")
-def summarize_document(input: str) -> str:
-    """Step 2 – Generate a rich summary using the existing SummarizationAgent class."""
-    from agents.summarization_agent import SummarizationAgent
-
-    data = json.loads(input)
-    agent = SummarizationAgent(
-        project_endpoint=PROJECT_ENDPOINT,
-        model_deployment_name=AZURE_OPENAI_MODEL,
-        use_managed_identity=True,
-        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    )
-    summary = asyncio.run(agent.generate_summary(data["text"], data["metadata"]))
-    return json.dumps(summary, default=str)
-
-
-@app.activity_trigger(input_name="input")
-def analyze_compliance(input: str) -> str:
-    """Step 3 – Run compliance analysis using the existing ComplianceAgent class."""
-    from agents.compliance_agent import ComplianceAgent
-
-    data = json.loads(input)
-    agent = ComplianceAgent(
-        project_endpoint=PROJECT_ENDPOINT,
-        model_deployment_name=AZURE_OPENAI_MODEL,
-        search_index_name=AZURE_SEARCH_INDEX,
-        search_endpoint=AZURE_SEARCH_ENDPOINT,
-        search_api_key=AZURE_SEARCH_API_KEY,
-        search_query_type=AI_SEARCH_QUERY_TYPE,
-    )
-    result = asyncio.run(
-        agent.analyze_proposal(data["proposal_text"], data.get("context"))
-    )
-    return json.dumps(result, default=str)
 
 
 @app.activity_trigger(input_name="input")
@@ -407,19 +395,29 @@ def send_notification(input: str) -> str:
 
 # ───────────────────────────────────────────────────────────────────────────
 # Durable Orchestration
+#
+# Steps 2 (Summarisation) and 3 (Compliance) use durable agents via
+# app.get_agent() + yield agent.run(), which gives:
+#   - Automatic conversation state persistence
+#   - Failure recovery / replay safety
+#   - Observability via the DTS dashboard
+#
+# Steps 1, 4, 5 remain as activity functions (no LLM needed).
 # ───────────────────────────────────────────────────────────────────────────
 
 
 @app.orchestration_trigger(context_name="context")
-def grant_compliance_workflow(context: df.DurableOrchestrationContext):
+def grant_compliance_workflow(
+    context: DurableOrchestrationContext,
+) -> Generator[Any, Any, dict]:
     """
     Sequential grant-compliance pipeline.
 
     Steps
     ─────
     1. Document Ingestion   (activity – DocumentIngestionAgent)
-    2. Summarisation         (activity – SummarizationAgent with tools)
-    3. Compliance Analysis   (activity – ComplianceAgent with AI Search tools)
+    2. Summarisation         (durable agent – SummarizationAgent)
+    3. Compliance Analysis   (durable agent – ComplianceAgent with AI Search tools)
     4. Risk Scoring          (activity – RiskScoringAgent)
     5. Email Notification    (activity – EmailTriggerAgent)
     """
@@ -434,30 +432,53 @@ def grant_compliance_workflow(context: df.DurableOrchestrationContext):
         file_path = ""
         send_email = False
 
-    # ── Step 1: Document Ingestion ────────────────────────────────────────
+    # ── Step 1: Document Ingestion (activity) ─────────────────────────────
     doc_json = yield context.call_activity("ingest_document", file_path)
     doc = json.loads(doc_json)
     document_text = doc["document_data"]["text"]
     metadata = doc["metadata"]
 
-    # ── Step 2: Summarisation ─────────────────────────────────────────────
-    summary_input = json.dumps({"text": document_text, "metadata": metadata})
-    summary_json = yield context.call_activity("summarize_document", summary_input)
-    summary = json.loads(summary_json)
+    # ── Step 2: Summarisation (durable agent) ─────────────────────────────
+    summarizer = app.get_agent(context, SUMMARIZATION_AGENT_NAME)
+    summarizer_session = summarizer.create_session()
 
-    # ── Step 3: Compliance Analysis ───────────────────────────────────────
-    compliance_input = json.dumps(
-        {
-            "proposal_text": document_text,
-            "context": {"metadata": metadata, "summary": summary},
-        }
+    summary_prompt = (
+        f"Summarise this grant proposal.\n\n"
+        f"Document metadata: {json.dumps(metadata)}\n\n"
+        f"Full text:\n{document_text}"
     )
-    compliance_json = yield context.call_activity(
-        "analyze_compliance", compliance_input
+    summary_response = yield summarizer.run(
+        messages=summary_prompt,
+        session=summarizer_session,
     )
-    compliance_report = json.loads(compliance_json)
+    # Parse the agent's text response into a structured dict for downstream steps
+    summary = {
+        "executive_summary": summary_response.text,
+        "metadata": metadata,
+    }
 
-    # ── Step 4: Risk Scoring ──────────────────────────────────────────────
+    # ── Step 3: Compliance Analysis (durable agent) ───────────────────────
+    compliance = app.get_agent(context, COMPLIANCE_AGENT_NAME)
+    compliance_session = compliance.create_session()
+
+    compliance_prompt = (
+        f"Analyse this grant proposal for compliance with executive orders.\n\n"
+        f"Document metadata: {json.dumps(metadata)}\n"
+        f"Summary: {summary_response.text}\n\n"
+        f"Full proposal text:\n{document_text}"
+    )
+    compliance_response = yield compliance.run(
+        messages=compliance_prompt,
+        session=compliance_session,
+    )
+    compliance_report = {
+        "analysis": compliance_response.text,
+        "status": "requires_review",
+        "confidence_score": 0,
+        "relevant_executive_orders": [],
+    }
+
+    # ── Step 4: Risk Scoring (activity) ───────────────────────────────────
     risk_input = json.dumps(
         {
             "compliance_report": compliance_report,
@@ -468,7 +489,7 @@ def grant_compliance_workflow(context: df.DurableOrchestrationContext):
     risk_json = yield context.call_activity("score_risk", risk_input)
     risk_report = json.loads(risk_json)
 
-    # ── Step 5: Email Notification ────────────────────────────────────────
+    # ── Step 5: Email Notification (activity) ─────────────────────────────
     email_input = json.dumps(
         {
             "risk_report": risk_report,
@@ -511,7 +532,8 @@ def grant_compliance_workflow(context: df.DurableOrchestrationContext):
 @app.route(route="workflows/grant-compliance", methods=["POST"])
 @app.durable_client_input(client_name="client")
 async def start_grant_workflow(
-    req: func.HttpRequest, client
+    req: func.HttpRequest,
+    client: DurableOrchestrationClient,
 ) -> func.HttpResponse:
     """
     Start a grant-compliance workflow.
@@ -543,7 +565,8 @@ async def start_grant_workflow(
         )
 
     instance_id = await client.start_new(
-        "grant_compliance_workflow", client_input=body
+        orchestration_function_name="grant_compliance_workflow",
+        client_input=body,
     )
     logger.info(
         "Started grant_compliance_workflow instance %s for %s",
@@ -551,3 +574,49 @@ async def start_grant_workflow(
         body["file_path"],
     )
     return client.create_check_status_response(req, instance_id)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# HTTP Trigger – query workflow status
+# ───────────────────────────────────────────────────────────────────────────
+
+
+@app.route(route="workflows/grant-compliance/status/{instanceId}", methods=["GET"])
+@app.durable_client_input(client_name="client")
+async def get_workflow_status(
+    req: func.HttpRequest,
+    client: DurableOrchestrationClient,
+) -> func.HttpResponse:
+    """Return orchestration runtime status for a given instance."""
+    instance_id = req.route_params.get("instanceId")
+    if not instance_id:
+        return func.HttpResponse(
+            json.dumps({"error": "Missing instanceId"}),
+            status_code=400,
+            mimetype="application/json",
+        )
+
+    status = await client.get_status(instance_id)
+    if not status:
+        return func.HttpResponse(
+            json.dumps({"error": f"Instance {instance_id} not found"}),
+            status_code=404,
+            mimetype="application/json",
+        )
+
+    response_data: dict[str, Any] = {
+        "instanceId": status.instance_id,
+        "runtimeStatus": status.runtime_status.value if status.runtime_status else None,
+        "createdTime": status.created_time.isoformat() if status.created_time else None,
+        "lastUpdatedTime": status.last_updated_time.isoformat()
+        if status.last_updated_time
+        else None,
+    }
+    if status.output is not None:
+        response_data["output"] = status.output
+
+    return func.HttpResponse(
+        body=json.dumps(response_data, default=str),
+        status_code=200,
+        mimetype="application/json",
+    )

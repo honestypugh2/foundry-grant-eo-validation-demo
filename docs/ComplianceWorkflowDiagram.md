@@ -93,7 +93,6 @@ flowchart TD
     E -.-> O1
     E -.-> O2
     G -.-> O2
-    J -.-> O2
     B -.-> O4
     
     style A fill:#e1f5fe
@@ -140,9 +139,9 @@ flowchart TD
 - Provides approval recommendation
 
 ### Email Trigger Agent
-- Optionally sends notification emails
+- Prepares notification emails (not active in the current demo by default; `send_email=False`)
 - Includes summary, compliance report, risk assessment
-- Notifies attorneys or stakeholders
+- Notifies attorneys or stakeholders when enabled
 
 ## Data Flow
 

@@ -159,7 +159,7 @@ def check_environment() -> dict:
     config['search_query_type'] = os.getenv('AI_SEARCH_QUERY_TYPE', 'simple')
 
     if missing:
-        print(f"\n❌ Missing required environment variables:")
+        print("\n❌ Missing required environment variables:")
         for m in missing:
             print(f"   - {m}")
         print("\nPlease configure these in your .env file.")
@@ -185,7 +185,7 @@ async def test_summarization_agent(config: dict) -> bool:
         project_endpoint=config['project_endpoint'],
         model_deployment_name=config['deployment_name'],
     )
-    print(f"  ✅ Agent initialized")
+    print("  ✅ Agent initialized")
     print(f"     Endpoint : {config['project_endpoint'][:60]}...")
     print(f"     Model    : {config['deployment_name']}")
 
@@ -212,7 +212,7 @@ async def test_summarization_agent(config: dict) -> bool:
     print(f"  📊 Summary length: {result.get('summary_length', 0)} words")
     print(f"  🔧 Method: {result.get('metadata', {}).get('summary_method', 'unknown')}")
 
-    print(f"\n  ✅ SummarizationAgentFoundry test PASSED")
+    print("\n  ✅ SummarizationAgentFoundry test PASSED")
     return True
 
 
@@ -227,7 +227,7 @@ async def test_compliance_agent(config: dict) -> bool:
         search_connection_id=config['search_connection_id'],
         search_query_type=config['search_query_type'],
     )
-    print(f"  ✅ Agent initialized")
+    print("  ✅ Agent initialized")
     print(f"     Search Index : {config['search_index']}")
     print(f"     Query Type   : {config['search_query_type']}")
 
@@ -278,7 +278,7 @@ async def test_sequential_workflow_orchestrator(config: dict) -> bool:
         use_azure=True,
         send_email=False,
     )
-    print(f"  ✅ Orchestrator initialized")
+    print("  ✅ Orchestrator initialized")
 
     # Locate a test document (prefer txt for speed, fall back to PDF)
     test_doc = Path(__file__).parent / 'test_document.txt'
@@ -288,13 +288,13 @@ async def test_sequential_workflow_orchestrator(config: dict) -> bool:
         if candidates:
             test_doc = candidates[0]
         else:
-            print(f"  ❌ No test document found")
+            print("  ❌ No test document found")
             return False
 
     print(f"  📄 Test document: {test_doc.name}")
 
     # --- Async workflow ---
-    print(f"\n  ⏳ Running async workflow...")
+    print("\n  ⏳ Running async workflow...")
     results = await orchestrator.process_grant_proposal_async(str(test_doc))
 
     # Validate top-level structure
@@ -305,7 +305,7 @@ async def test_sequential_workflow_orchestrator(config: dict) -> bool:
 
     # Print step statuses
     print(f"\n  {'─' * 60}")
-    print(f"  WORKFLOW STEPS")
+    print("  WORKFLOW STEPS")
     print(f"  {'─' * 60}")
     for step_name, step_data in results['steps'].items():
         status_emoji = '✅' if step_data['status'] == 'completed' else ('⏭️' if step_data['status'] == 'skipped' else '❌')
@@ -345,12 +345,12 @@ async def test_sequential_workflow_orchestrator(config: dict) -> bool:
     print(f"\n{orchestrator.get_workflow_summary(results)}")
 
     # --- Sync wrapper ---
-    print(f"\n  ⏳ Running sync wrapper...")
+    print("\n  ⏳ Running sync wrapper...")
     sync_results = orchestrator.process_grant_proposal(str(test_doc))
     assert sync_results['status'] == 'completed', f"Sync workflow failed: {sync_results.get('error', 'unknown')}"
     print(f"  ✅ Sync wrapper returned status: {sync_results['status']}")
 
-    print(f"\n  ✅ SequentialWorkflowOrchestratorFoundry test PASSED")
+    print("\n  ✅ SequentialWorkflowOrchestratorFoundry test PASSED")
     return True
 
 
@@ -399,9 +399,9 @@ async def run_all_tests():
     print(f"\n  {passed_count}/{total} tests passed")
 
     if all_passed:
-        print(f"\n  🎉 All Foundry agent tests passed!")
+        print("\n  🎉 All Foundry agent tests passed!")
     else:
-        print(f"\n  ⚠️  Some tests failed. Check logs above for details.")
+        print("\n  ⚠️  Some tests failed. Check logs above for details.")
 
     return all_passed
 

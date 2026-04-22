@@ -196,7 +196,9 @@ Three risk components shown:
 - Timestamp when sent
 
 **Why Email?**:
-Emails are automatically sent when:
+
+> **Note**: Email notification is an architectural feature not active in the current demo. The email tab shows prepared notification details, but actual sending is disabled by default (`send_email=False`). When enabled, emails would be sent when:
+
 - Risk Score < 75% (Medium threshold)
 - Risk Level is "High" or "Medium-High"
 - Attorney review is required

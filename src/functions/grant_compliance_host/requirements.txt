@@ -5,10 +5,9 @@ azure-functions
 azure-functions-durable>=1.5.0
 azure-identity
 
-# Agent Framework + Azure Functions durable extension + OpenAI client
+# Agent Framework + Azure Functions durable extension + Foundry client
 agent-framework>=1.0.1
 agent-framework-azurefunctions>=1.0.0b260409
-agent-framework-openai>=1.0.1
 
 # Azure AI Search (used by ComplianceAgent search tool)
 azure-search-documents>=11.6.0

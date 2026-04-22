@@ -94,7 +94,6 @@ The key packages:
 ```
 agent-framework>=1.0.1
 agent-framework-azurefunctions>=1.0.0b260409
-agent-framework-openai>=1.0.1
 azure-functions-durable>=1.5.0
 azure-identity
 ```
@@ -426,21 +425,15 @@ curl -X POST "https://func-grant-compliance.azurewebsites.net/api/workflows/gran
 
 ### Agent Definition Pattern
 
-The agents are defined using the standard Agent Framework pattern with `OpenAIChatCompletionClient`:
+The agents are defined using `FoundryChatClient` from `agent_framework.foundry`, which routes through the Foundry project for tracing and observability:
 
 ```python
+from agent_framework import Agent, tool
 from agent_framework.azure import AgentFunctionApp
-from agent_framework.openai import OpenAIChatCompletionClient
-from agent_framework import tool
+from agent_framework.foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
 
-# Create the AI client
-chat_client = OpenAIChatCompletionClient(
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
-    api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
-    credential=DefaultAzureCredential(),
-)
+_credential = DefaultAzureCredential()
 
 # Define a tool the agent can use
 @tool(name="search_executive_orders", description="Search the knowledge base")
@@ -448,15 +441,24 @@ def search_executive_orders(query: str) -> str:
     # ... search implementation
     pass
 
-# Create the agent
-agent = chat_client.as_agent(
+# Create the agent with FoundryChatClient
+agent = Agent(
+    client=FoundryChatClient(
+        project_endpoint=os.getenv("AZURE_AI_FOUNDRY_PROJECT_ENDPOINT"),
+        model=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+        credential=_credential,
+    ),
     name="ComplianceAgent",
     instructions="You are a legal compliance analyst...",
     tools=[search_executive_orders],
 )
 
 # Host it in Azure Functions with durable state
-app = AgentFunctionApp(agents=[agent])
+app = AgentFunctionApp(
+    agents=[agent],
+    enable_health_check=True,
+    max_poll_retries=50,
+)
 ```
 
 ### Sequential Orchestration Pattern

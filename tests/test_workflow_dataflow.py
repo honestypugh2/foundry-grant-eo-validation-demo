@@ -65,8 +65,6 @@ compliance_agent = ComplianceAgent(
     model_deployment_name=deployment_name,
     search_endpoint=search_endpoint,
     search_index_name=search_index,
-    azure_search_document_truncation_size=1000,
-    use_managed_identity=False,
     search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
 )
 
@@ -132,7 +130,7 @@ try:
 
     summary = asyncio.run(summary_agent.generate_summary(
         document_data['text'],
-        metadata.get('file_name', 'Unknown')
+        metadata
     ))
 
     workflow_results['steps']['summarization'] = {
@@ -187,8 +185,8 @@ try:
         'report': compliance_report
     }
 
-    compliance_score = compliance_report['compliance_score']
-    status = compliance_report['overall_status']
+    compliance_score = compliance_report['confidence_score']
+    status = compliance_report['status']
 
     print('✅ Compliance analysis completed')
     print('\nCompliance Results:')
@@ -239,7 +237,7 @@ try:
     print('\nRisk Analysis:')
     print(f'  - Overall Risk Score: {risk_score:.1f}%')
     print(f'  - Risk Level: {risk_level.upper()}')
-    print(f'  - Confidence: {risk_report["confidence"]:.1f}%')
+    print(f'  - Confidence: {risk_report["assessment_certainty"]:.1f}%')
     print(f'  - Notification Required: {"Yes" if risk_report["requires_notification"] else "No"}')
 
     print('\n  Risk Breakdown:')
