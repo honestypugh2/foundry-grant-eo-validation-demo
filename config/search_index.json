@@ -5,179 +5,248 @@
       "name": "id",
       "type": "Edm.String",
       "key": true,
+      "retrievable": true,
+      "stored": true,
       "searchable": false,
       "filterable": true,
-      "sortable": true
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
     },
     {
       "name": "title",
       "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": true,
-      "filterable": false,
-      "sortable": true,
+      "filterable": true,
+      "sortable": false,
       "facetable": false,
-      "analyzer": "en.microsoft"
+      "synonym_maps": []
     },
     {
       "name": "content",
       "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": true,
       "filterable": false,
       "sortable": false,
       "facetable": false,
-      "analyzer": "en.microsoft"
+      "synonym_maps": []
     },
     {
       "name": "document_type",
       "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": false,
       "filterable": true,
-      "sortable": true,
-      "facetable": true
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
     },
     {
       "name": "executive_order_number",
       "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": true,
       "filterable": true,
-      "sortable": true,
-      "facetable": true
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
     },
     {
       "name": "effective_date",
-      "type": "Edm.DateTimeOffset",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": false,
       "filterable": true,
       "sortable": true,
-      "facetable": true
+      "facetable": false,
+      "synonym_maps": []
     },
     {
       "name": "category",
-      "type": "Collection(Edm.String)",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": true,
       "filterable": true,
-      "facetable": true
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
     },
     {
       "name": "keywords",
-      "type": "Collection(Edm.String)",
-      "searchable": true,
-      "filterable": true,
-      "facetable": true
-    },
-    {
-      "name": "compliance_areas",
-      "type": "Collection(Edm.String)",
-      "searchable": true,
-      "filterable": true,
-      "facetable": true
-    },
-    {
-      "name": "agency",
       "type": "Edm.String",
-      "searchable": true,
-      "filterable": true,
-      "sortable": true,
-      "facetable": true
-    },
-    {
-      "name": "status",
-      "type": "Edm.String",
-      "searchable": false,
-      "filterable": true,
-      "sortable": true,
-      "facetable": true
-    },
-    {
-      "name": "summary",
-      "type": "Edm.String",
-      "searchable": true,
-      "filterable": false,
-      "analyzer": "en.microsoft"
-    },
-    {
-      "name": "content_vector",
-      "type": "Collection(Edm.Single)",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
       "searchable": true,
       "filterable": false,
       "sortable": false,
       "facetable": false,
-      "dimensions": 1536,
-      "vectorSearchProfile": "vector-profile"
+      "synonym_maps": []
+    },
+    {
+      "name": "compliance_areas",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": true,
+      "filterable": true,
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "agency",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": false,
+      "filterable": true,
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "status",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": false,
+      "filterable": true,
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "summary",
+      "type": "Edm.String",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": true,
+      "filterable": false,
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "chunk_number",
+      "type": "Edm.Int32",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": false,
+      "filterable": true,
+      "sortable": true,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "total_chunks",
+      "type": "Edm.Int32",
+      "key": false,
+      "retrievable": true,
+      "stored": true,
+      "searchable": false,
+      "filterable": true,
+      "sortable": false,
+      "facetable": false,
+      "synonym_maps": []
+    },
+    {
+      "name": "content_vector",
+      "type": "Collection(Edm.Single)",
+      "key": false,
+      "retrievable": false,
+      "stored": true,
+      "searchable": true,
+      "filterable": false,
+      "sortable": false,
+      "facetable": false,
+      "vector_search_dimensions": 1536,
+      "vector_search_profile_name": "default-vector-profile",
+      "synonym_maps": []
     }
   ],
-  "semantic": {
+  "scoring_profiles": [],
+  "suggesters": [],
+  "token_filters": [],
+  "char_filters": [],
+  "normalizers": [],
+  "similarity": {
+    "odata_type": "#Microsoft.Azure.Search.BM25Similarity"
+  },
+  "semantic_search": {
     "configurations": [
       {
-        "name": "compliance-semantic-config",
-        "prioritizedFields": {
-          "titleField": {
-            "fieldName": "title"
+        "name": "default-semantic-config",
+        "prioritized_fields": {
+          "title_field": {
+            "field_name": "title"
           },
-          "prioritizedContentFields": [
+          "content_fields": [
             {
-              "fieldName": "content"
-            },
-            {
-              "fieldName": "summary"
+              "field_name": "content"
             }
           ],
-          "prioritizedKeywordsFields": [
+          "keywords_fields": [
             {
-              "fieldName": "keywords"
-            },
-            {
-              "fieldName": "compliance_areas"
+              "field_name": "keywords"
             }
           ]
-        }
+        },
+        "ranking_order": "BoostedRerankerScore"
       }
     ]
   },
-  "vectorSearch": {
+  "vector_search": {
     "profiles": [
       {
-        "name": "vector-profile",
-        "algorithm": "hnsw-config",
-        "vectorizer": "openai-vectorizer"
+        "name": "default-vector-profile",
+        "algorithm_configuration_name": "default-hnsw",
+        "vectorizer_name": "openai-vectorizer"
       }
     ],
     "algorithms": [
       {
-        "name": "hnsw-config",
+        "name": "default-hnsw",
         "kind": "hnsw",
-        "hnswParameters": {
+        "parameters": {
           "m": 4,
-          "efConstruction": 400,
-          "efSearch": 500,
+          "ef_construction": 400,
+          "ef_search": 500,
           "metric": "cosine"
         }
       }
     ],
     "vectorizers": [
       {
-        "name": "openai-vectorizer",
+        "vectorizer_name": "openai-vectorizer",
         "kind": "azureOpenAI",
-        "azureOpenAIParameters": {
-          "resourceUri": "${AZURE_OPENAI_ENDPOINT}",
-          "deploymentId": "text-embedding-ada-002",
-          "apiKey": "${AZURE_OPENAI_API_KEY}"
+        "parameters": {
+          "resource_url": "https://cog-grant-eo-dev.openai.azure.com",
+          "deployment_name": "text-embedding-3-small",
+          "model_name": "text-embedding-3-small"
         }
       }
-    ]
+    ],
+    "compressions": []
   },
-  "suggesters": [
-    {
-      "name": "sg-compliance",
-      "searchMode": "analyzingInfixMatching",
-      "sourceFields": [
-        "title",
-        "executive_order_number",
-        "keywords"
-      ]
-    }
-  ],
-  "analyzers": [],
-  "charFilters": [],
-  "tokenFilters": []
+  "e_tag": "\"0x8DEB512FDF920BA\""
 }

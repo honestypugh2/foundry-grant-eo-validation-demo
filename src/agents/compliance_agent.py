@@ -31,7 +31,7 @@ class ComplianceAgent:
         search_index_name: str,
         search_endpoint: Optional[str] = None,
         search_api_key: Optional[str] = None,
-        search_query_type: str = "simple",
+        search_query_type: str = "semantic",
     ):
         """
         Initialize the Compliance Agent.
@@ -104,11 +104,17 @@ Output Format:
             credential=credential,
         )
 
-        results = client.search(
-            search_text=query,
-            query_type=self.search_query_type,
-            top=5,
-        )
+        search_kwargs: Dict[str, Any] = {
+            "search_text": query,
+            "query_type": self.search_query_type,
+            "top": 5,
+        }
+        if self.search_query_type == "semantic":
+            search_kwargs["semantic_configuration_name"] = os.getenv(
+                "AI_SEARCH_SEMANTIC_CONFIG", "default-semantic-config"
+            )
+
+        results = client.search(**search_kwargs)
 
         output_parts = []
         for i, result in enumerate(results, 1):
@@ -573,7 +579,7 @@ async def main():
         search_index_name=os.getenv("AZURE_SEARCH_INDEX_NAME") or os.getenv("AZURE_SEARCH_INDEX") or "grant-compliance-index",
         search_endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
         search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-        search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
+        search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "semantic"),
     )
 
     # Example proposal

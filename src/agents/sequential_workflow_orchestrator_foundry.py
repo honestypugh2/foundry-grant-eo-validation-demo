@@ -120,11 +120,23 @@ Output Format:
                     AISearchIndexResource(
                         project_connection_id=self.search_connection_id,
                         index_name=self.search_index,
-                        query_type=AzureAISearchQueryType.SIMPLE,
+                        query_type=self._get_search_query_type(),
                     ),
                 ]
             )
         )
+
+    def _get_search_query_type(self) -> AzureAISearchQueryType:
+        """Map AI_SEARCH_QUERY_TYPE env var to AzureAISearchQueryType enum."""
+        query_type_str = os.getenv("AI_SEARCH_QUERY_TYPE", "semantic").lower()
+        mapping = {
+            "simple": AzureAISearchQueryType.SIMPLE,
+            "semantic": AzureAISearchQueryType.SEMANTIC,
+            "vector": AzureAISearchQueryType.VECTOR,
+            "vector_semantic_hybrid": AzureAISearchQueryType.VECTOR_SEMANTIC_HYBRID,
+            "vector_simple_hybrid": AzureAISearchQueryType.VECTOR_SIMPLE_HYBRID,
+        }
+        return mapping.get(query_type_str, AzureAISearchQueryType.SEMANTIC)
 
     async def process_grant_proposal_async(
         self,

@@ -82,12 +82,14 @@ Orchestrator Agent (Coordinator)
 
 ### SDK Options
 
-The system supports **two SDK implementations** for AI agents:
+The system supports **three hosting models** for AI agents:
 
-| SDK | Module | Best For |
+| Hosting Model | Module | Best For |
 |-----|--------|----------|
-| **Agent Framework** | `compliance_agent.py`, `summarization_agent.py` | Local development, Agent Framework ecosystem |
-| **Azure AI Projects** (Foundry) | `compliance_agent_foundry.py`, `summarization_agent_foundry.py` | Azure AI Foundry portal integration, debugging |
+| **Agent Framework (Local/Backend)** | `compliance_agent.py`, `summarization_agent.py` | Local development, FastAPI backend |
+| **Azure Functions (Durable)** | `src/functions/grant_compliance_host/function_app.py` | Serverless production, auto-scaling, durable workflows |
+| **Foundry Hosted Agent** | `src/hosted_agent/server.py` | Foundry portal visibility, managed container hosting |
+| **Azure AI Projects (Foundry Prompt)** | `compliance_agent_foundry.py`, `summarization_agent_foundry.py` | Azure AI Foundry portal debugging |
 
 **Select via environment variable:**
 ```bash
@@ -95,10 +97,9 @@ export AGENT_SERVICE=agent-framework  # Default - uses Agent Framework SDK
 export AGENT_SERVICE=foundry          # Uses azure-ai-projects SDK
 ```
 
-**Foundry Agent Persistence:**
+**Foundry Hosted Agent (container-based, visible in portal):**
 ```bash
-# Keep agents visible in Azure AI Foundry portal after workflow
-export PERSIST_FOUNDRY_AGENTS=true
+./scripts/deploy_hosted_agent.sh --create-acr
 ```
 
 ### Agent Responsibilities
@@ -267,10 +268,10 @@ export PERSIST_FOUNDRY_AGENTS=true
 - **Data Passing**: Results flow between agents via orchestrator
 
 ### 2. Knowledge Base Retrieval Pattern (RAG)
-- **Index**: Executive orders indexed in Azure AI Search
-- **Retrieve**: Semantic search finds relevant documents
-- **Augment**: Search results provided as context to GPT-4
-- **Generate**: LLM generates grounded compliance analysis
+- **Index**: Executive orders chunked (~2000 chars, 200 overlap) and indexed in Azure AI Search with integrated vectorizer (`text-embedding-3-small`)
+- **Retrieve**: Hybrid search (text + vector + semantic reranking) finds relevant chunks
+- **Augment**: Top-ranked chunks provided as context to GPT-4o
+- **Generate**: LLM generates grounded compliance analysis with citations
 
 ### 3. Human-in-the-Loop Pattern
 - **AI Analysis**: Automated compliance checking
@@ -302,10 +303,11 @@ export PERSIST_FOUNDRY_AGENTS=true
 
 ### Azure Services
 - **Azure AI Foundry**: Agent deployment and management
-- **Azure OpenAI**: GPT-4 LLM inference
-- **Azure AI Search**: Semantic search and vector indexing
+- **Azure OpenAI**: GPT-4o LLM inference + text-embedding-3-small
+- **Azure AI Search**: Hybrid search (text + vector via integrated vectorizer) with semantic reranking
 - **Azure Document Intelligence**: OCR and document processing
-- **Azure Functions**: Serverless compute for notifications
+- **Azure Functions**: Serverless compute for durable agent hosting
+- **Azure Container Registry**: Container images for Foundry Hosted Agent
 - **Azure Key Vault**: Secrets management
 - **Azure Monitor**: Logging and observability
 
@@ -390,14 +392,15 @@ export PERSIST_FOUNDRY_AGENTS=true
 - **Hot Reload**: Vite (frontend), Uvicorn (backend)
 
 ### Staging
-- **Azure App Service**: Web app hosting
-- **Azure Functions**: Serverless compute
+- **Azure Functions (Durable)**: Serverless agent hosting via `AgentFunctionApp`
+- **Foundry Hosted Agent**: Container-based hosting via `ResponsesHostServer` (visible in Foundry portal)
 - **Managed Azure Services**: OpenAI, Search, etc.
 - **Private Endpoints**: VNet integration
 
 ### Production
-- **Azure Kubernetes Service (AKS)**: Container orchestration (optional)
-- **Azure App Service**: Web app hosting (recommended)
+- **Azure Functions (Flex Consumption)**: Auto-scaling serverless agents
+- **Foundry Hosted Agent**: Managed container hosting with portal integration
+- **Azure Container Registry**: Agent container images (Basic/Standard SKU)
 - **Azure Front Door**: Global load balancing and CDN
 - **Multiple Regions**: High availability
 - **Disaster Recovery**: Backup region failover
@@ -429,7 +432,16 @@ export PERSIST_FOUNDRY_AGENTS=true
 
 ## Version History
 
-### v2.0 (December 2025) - Current
+### v3.0 (May 2026) - Current
+**Major Updates:**
+- ✅ **Agent Framework 1.4.0** - Upgraded from 1.0.1
+- ✅ **Foundry Hosted Agent** - Container-based deployment visible in Foundry portal (`ResponsesHostServer`)
+- ✅ **Hybrid Search** - Text + vector search with semantic ranking (text-embedding-3-small)
+- ✅ **Azure Container Registry** - Added to infrastructure for Hosted Agent images
+- ✅ **Dual Hosting** - Azure Functions AND Foundry Hosted Agent as deployment options
+- ✅ **Managed Identity** - DefaultAzureCredential throughout, no API keys required
+
+### v2.0 (December 2025)
 **Major Updates:**
 - ✅ **React 19.2.3** - Upgraded from React 18.3.1 (CVE-2025-55182 patched)
 - ✅ **React Router 7.11.0** - Major upgrade for React 19 compatibility
@@ -454,8 +466,5 @@ export PERSIST_FOUNDRY_AGENTS=true
 
 ---
 
-**Last Updated**: December 18, 2025  
-**Version**: 2.0
-
-**Last Updated**: November 2025  
-**Version**: 1.0
+**Last Updated**: May 2026  
+**Version**: 3.0

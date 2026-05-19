@@ -46,7 +46,7 @@ from agent_framework import Agent, tool
 from agent_framework_azurefunctions import AgentFunctionApp
 from agent_framework.foundry import FoundryChatClient
 from azure.durable_functions import DurableOrchestrationClient, DurableOrchestrationContext
-from azure.identity.aio import AzureCliCredential
+from azure.identity.aio import DefaultAzureCredential
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,9 @@ AZURE_SEARCH_INDEX = os.getenv(
 )
 AZURE_SEARCH_API_KEY = os.getenv("AZURE_SEARCH_API_KEY")
 AI_SEARCH_QUERY_TYPE = os.getenv("AI_SEARCH_QUERY_TYPE", "simple")
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT = os.getenv(
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small"
+)
 
 # ───────────────────────────────────────────────────────────────────────────
 # Function Tools  (standalone @tool functions used by the durable agents)
@@ -126,10 +129,11 @@ def search_executive_orders(
         "Search query describing the compliance topic or executive order to find",
     ],
 ) -> str:
-    """Search the executive orders knowledge base using Azure AI Search."""
+    """Search the executive orders knowledge base using Azure AI Search (hybrid: text + vector)."""
     from azure.core.credentials import AzureKeyCredential
-    from azure.identity import DefaultAzureCredential
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
     from azure.search.documents import SearchClient
+    from azure.search.documents.models import VectorizedQuery
 
     if not AZURE_SEARCH_ENDPOINT:
         return "Error: Azure AI Search endpoint not configured. Set AZURE_SEARCH_ENDPOINT."
@@ -144,8 +148,54 @@ def search_executive_orders(
         index_name=AZURE_SEARCH_INDEX,
         credential=credential,
     )
+
+    # Generate query embedding for hybrid search
+    vector_queries: list[Any] | None = None
+    try:
+        from openai import AzureOpenAI
+
+        if AZURE_SEARCH_API_KEY:
+            # When using API keys for search, use API key for embeddings too
+            openai_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+            if openai_key:
+                embedding_client = AzureOpenAI(
+                    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+                    api_key=openai_key,
+                    api_version="2024-06-01",
+                )
+            else:
+                embedding_client = None
+        else:
+            token_provider = get_bearer_token_provider(
+                DefaultAzureCredential(),
+                "https://cognitiveservices.azure.com/.default",
+            )
+            embedding_client = AzureOpenAI(
+                azure_endpoint=AZURE_OPENAI_ENDPOINT,
+                azure_ad_token_provider=token_provider,
+                api_version="2024-06-01",
+            )
+
+        if embedding_client:
+            embed_resp = embedding_client.embeddings.create(
+                input=query, model=AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+            )
+            vector_queries = [
+                VectorizedQuery(
+                    vector=embed_resp.data[0].embedding,
+                    k_nearest_neighbors=5,
+                    fields="content_vector",
+                )
+            ]
+    except Exception as exc:
+        logger.warning("Embedding generation failed, falling back to text-only search: %s", exc)
+
     results = client.search(
-        search_text=query, query_type=AI_SEARCH_QUERY_TYPE, top=5
+        search_text=query,
+        query_type=AI_SEARCH_QUERY_TYPE,
+        semantic_configuration_name="default-semantic-config" if AI_SEARCH_QUERY_TYPE == "semantic" else None,
+        top=5,
+        vector_queries=vector_queries,
     )
 
     parts: list[str] = []
@@ -282,7 +332,7 @@ Output Format:
 # Uses async AzureCliCredential as recommended by official samples.
 # ───────────────────────────────────────────────────────────────────────────
 
-_credential = AzureCliCredential()
+_credential = DefaultAzureCredential()
 
 # Agent names referenced in the orchestration
 SUMMARIZATION_AGENT_NAME = "SummarizationAgent"

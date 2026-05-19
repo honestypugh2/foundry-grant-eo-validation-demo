@@ -40,6 +40,12 @@ dependencies = [
     "reportlab>=4.4.10",
     "diagrams>=0.25.1",
     "agent-framework-azure-ai-search>=0.0.0a1",
+    "opentelemetry-api>=1.33.0",
+    "opentelemetry-sdk>=1.33.0",
+    "azure-monitor-opentelemetry-exporter>=1.0.0b34",
+    "agent-framework-foundry-hosting>=1.0.0a260514",
+    "ipykernel>=7.2.0",
+    "nbformat>=5.10.4",
 ]
 
 [dependency-groups]

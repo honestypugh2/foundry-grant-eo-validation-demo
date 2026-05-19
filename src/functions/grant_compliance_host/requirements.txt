@@ -8,9 +8,13 @@ azure-identity
 # Agent Framework + Azure Functions durable extension + Foundry client
 agent-framework>=1.0.1
 agent-framework-azurefunctions>=1.0.0b260409
+agent-framework-foundry>=1.0.1
 
 # Azure AI Search (used by ComplianceAgent search tool)
 azure-search-documents>=11.6.0
+
+# OpenAI SDK (used for embedding generation in hybrid search)
+openai>=2.31.0
 
 # Shared project dependencies used by existing agent classes
 azure-ai-documentintelligence>=1.0.2

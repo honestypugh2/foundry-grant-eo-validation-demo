@@ -84,7 +84,7 @@ const AboutPage: React.FC = () => {
               { name: 'Azure AI Agent Framework', desc: 'Multi-agent orchestration & coordination' },
               { name: 'Azure AI Foundry', desc: 'Agent deployment & management' },
               { name: 'Azure OpenAI', desc: 'GPT-4 LLM analysis' },
-              { name: 'Azure AI Search', desc: 'Semantic search & RAG' },
+              { name: 'Azure AI Search', desc: 'Hybrid search (text + vector) with semantic reranking' },
               { name: 'Document Intelligence', desc: 'OCR & document processing' },
               { name: 'React + TypeScript', desc: 'Modern UI framework' },
               { name: 'FastAPI', desc: 'REST backend API' },

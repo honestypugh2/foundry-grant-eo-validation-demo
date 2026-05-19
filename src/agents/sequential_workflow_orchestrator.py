@@ -13,6 +13,7 @@ from agent_framework import (
     Executor,
     Message,
     WorkflowContext,
+
     handler,
 )
 from agent_framework.orchestrations import SequentialBuilder
@@ -166,7 +167,7 @@ class ComplianceValidationExecutor(Executor):
         search_index_name: str,
         search_endpoint: Optional[str] = None,
         search_api_key: Optional[str] = None,
-        search_query_type: str = "simple",
+        search_query_type: str = "semantic",
     ):
         self.agent = ComplianceAgent(
             project_endpoint=project_endpoint,
@@ -765,7 +766,7 @@ class SequentialWorkflowOrchestrator:
             search_index_name=self.search_index,
             search_endpoint=self.search_endpoint,
             search_api_key=os.getenv("AZURE_SEARCH_API_KEY"),
-            search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "simple"),
+            search_query_type=os.getenv("AI_SEARCH_QUERY_TYPE", "semantic"),
         )
         
         risk_executor = RiskScoringExecutor()
@@ -802,6 +803,9 @@ class SequentialWorkflowOrchestrator:
         Returns:
             Complete workflow results including all agent outputs
         """
+        from .observability import get_tracer, record_risk_decision, record_compliance_result
+
+        tracer = get_tracer()
         logger.info(f"Starting sequential workflow for: {file_path}")
         
         workflow_results = {
@@ -810,58 +814,89 @@ class SequentialWorkflowOrchestrator:
             'steps': {}
         }
         
-        try:
-            # Build the workflow
-            workflow = self._build_workflow()
-            
-            # Run workflow with streaming
-            output_data = None
-            
-            async for event in workflow.run(file_path, stream=True):
-                if event.type == "status":
-                    logger.debug(f"Workflow state: {event.data}")
+        with tracer.start_as_current_span("pipeline.process_grant_proposal") as root_span:
+            root_span.set_attribute("proposal.file_path", file_path)
+
+            try:
+                # Build the workflow
+                workflow = self._build_workflow()
                 
-                elif event.type == "output":
-                    output_data = event.data
-                    logger.info("Workflow output received")
+                # Run workflow with streaming
+                output_data = None
                 
-                elif event.type == "executor_failed":
-                    details = event.data
-                    logger.error(
-                        f"Executor failed: {getattr(details, 'executor_id', 'unknown')} - "
-                        f"{getattr(details, 'error_type', 'Error')}: {getattr(details, 'message', str(details))}"
-                    )
-                    raise Exception(f"Executor failed: {getattr(details, 'message', str(details))}")
+                async for event in workflow.run(file_path, stream=True):
+                    if event.type == "status":
+                        logger.debug(f"Workflow state: {event.data}")
+                    
+                    elif event.type == "output":
+                        output_data = event.data
+                        logger.info("Workflow output received")
+                    
+                    elif event.type == "executor_failed":
+                        details = event.data
+                        executor_id = getattr(details, 'executor_id', 'unknown')
+                        error_msg = getattr(details, 'message', str(details))
+                        root_span.set_attribute("error", True)
+                        root_span.add_event("executor_failed", attributes={
+                            "executor.id": executor_id,
+                            "error.message": error_msg,
+                        })
+                        logger.error(
+                            f"Executor failed: {executor_id} - "
+                            f"{getattr(details, 'error_type', 'Error')}: {error_msg}"
+                        )
+                        raise Exception(f"Executor failed: {error_msg}")
+                    
+                    elif event.type == "failed":
+                        details = event.data
+                        error_msg = getattr(details, 'message', str(details))
+                        root_span.set_attribute("error", True)
+                        root_span.add_event("workflow_failed", attributes={
+                            "error.message": error_msg,
+                        })
+                        logger.error(
+                            f"Workflow failed: {getattr(details, 'error_type', 'Error')}: {error_msg}"
+                        )
+                        raise Exception(f"Workflow failed: {error_msg}")
                 
-                elif event.type == "failed":
-                    details = event.data
-                    logger.error(
-                        f"Workflow failed: {getattr(details, 'error_type', 'Error')}: {getattr(details, 'message', str(details))}"
-                    )
-                    raise Exception(f"Workflow failed: {getattr(details, 'message', str(details))}")
+                # Extract final results from output event
+                # SequentialBuilder emits list[Message] as the output event data.
+                # The actual results dict is JSON-encoded in the last assistant message
+                # (written by EmailNotificationExecutor).
+                if output_data is not None:
+                    final_results = None
+                    if isinstance(output_data, list):
+                        for msg in reversed(output_data):
+                            if hasattr(msg, 'text') and msg.text:
+                                try:
+                                    final_results = json.loads(msg.text)
+                                    break
+                                except (json.JSONDecodeError, TypeError):
+                                    continue
+                        if final_results is None:
+                            raise Exception("Could not extract results from workflow output messages")
+                    else:
+                        final_results = output_data
+
+                    # Record observability telemetry from the final results
+                    if isinstance(final_results, dict):
+                        root_span.set_attribute("workflow.status", final_results.get("overall_status", "unknown"))
+                        if "compliance_report" in final_results:
+                            record_compliance_result(root_span, final_results["compliance_report"])
+                        if "risk_report" in final_results:
+                            record_risk_decision(root_span, final_results["risk_report"])
+
+                    return final_results
+                else:
+                    raise Exception("No workflow output received")
             
-            # Extract final results from output event
-            # SequentialBuilder emits list[Message] as the output event data.
-            # The actual results dict is JSON-encoded in the last assistant message
-            # (written by EmailNotificationExecutor).
-            if output_data is not None:
-                if isinstance(output_data, list):
-                    for msg in reversed(output_data):
-                        if hasattr(msg, 'text') and msg.text:
-                            try:
-                                return json.loads(msg.text)
-                            except (json.JSONDecodeError, TypeError):
-                                continue
-                    raise Exception("Could not extract results from workflow output messages")
-                return output_data
-            else:
-                raise Exception("No workflow output received")
-        
-        except Exception as e:
-            logger.error(f"✗ Workflow failed: {str(e)}")
-            workflow_results['status'] = 'failed'
-            workflow_results['error'] = str(e)
-            raise
+            except Exception as e:
+                root_span.set_attribute("error", True)
+                root_span.record_exception(e)
+                logger.error(f"✗ Workflow failed: {str(e)}")
+                workflow_results['status'] = 'failed'
+                workflow_results['error'] = str(e)
+                raise
     
     def process_grant_proposal(
         self,

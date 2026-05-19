@@ -93,19 +93,19 @@ def check_azure_service_status() -> AzureServiceStatus:
     """Check if Azure services are configured."""
     return AzureServiceStatus(
         azure_openai=bool(
-            os.getenv('AZURE_OPENAI_ENDPOINT') and 
+            os.getenv('AZURE_OPENAI_ENDPOINT') or 
             os.getenv('AZURE_OPENAI_API_KEY')
         ),
         document_intelligence=bool(
-            os.getenv('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT') and 
+            os.getenv('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT') or 
             os.getenv('AZURE_DOCUMENT_INTELLIGENCE_API_KEY')
         ),
         ai_search=bool(
-            os.getenv('AZURE_SEARCH_ENDPOINT') and 
+            os.getenv('AZURE_SEARCH_ENDPOINT') or 
             os.getenv('AZURE_SEARCH_API_KEY')
         ),
         ai_foundry=bool(
-            os.getenv('AZURE_AI_FOUNDRY_ENDPOINT') and 
+            os.getenv('AZURE_AI_FOUNDRY_ENDPOINT') or 
             os.getenv('AZURE_AI_FOUNDRY_API_KEY')
         )
     )

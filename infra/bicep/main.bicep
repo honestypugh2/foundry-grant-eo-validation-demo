@@ -20,6 +20,12 @@ param openAIDeploymentName string = 'gpt-4o'
 @description('Azure OpenAI model version')
 param openAIModelVersion string = '2024-11-20'
 
+@description('Embedding model deployment name')
+param embeddingDeploymentName string = 'text-embedding-3-small'
+
+@description('Embedding model version')
+param embeddingModelVersion string = '1'
+
 @description('Azure Search index name')
 param searchIndexName string = 'grant-compliance-index'
 
@@ -106,6 +112,28 @@ resource openAIDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025
       format: 'OpenAI'
       name: openAIDeploymentName
       version: openAIModelVersion
+    }
+    raiPolicyName: 'Microsoft.Default'
+  }
+}
+
+// ============================================================================
+// Azure OpenAI Embedding Deployment (for hybrid search vectors)
+// ============================================================================
+
+resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = {
+  parent: aiFoundryResource
+  name: embeddingDeploymentName
+  dependsOn: [openAIDeployment]
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 120
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: embeddingDeploymentName
+      version: embeddingModelVersion
     }
     raiPolicyName: 'Microsoft.Default'
   }
@@ -433,7 +461,7 @@ resource grantComplianceFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFu
       }
       runtime: {
         name: 'python'
-        version: '3.11'
+        version: '3.12'
       }
     }
     siteConfig: {
@@ -443,17 +471,37 @@ resource grantComplianceFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFu
         { name: 'AzureWebJobsStorage__accountName', value: functionStorageAccount!.name }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: applicationInsights.properties.ConnectionString }
+        { name: 'DURABLE_TASK_SCHEDULER_CONNECTION_STRING', value: 'Endpoint=${durableTaskScheduler!.properties.endpoint};Authentication=ManagedIdentity' }
+        { name: 'TASKHUB_NAME', value: 'default' }
+        { name: 'FOUNDRY_PROJECT_ENDPOINT', value: aiFoundryProject.properties.endpoints['AI Foundry API'] }
+        { name: 'FOUNDRY_MODEL', value: openAIDeploymentName }
         { name: 'AZURE_OPENAI_ENDPOINT', value: aiFoundryResource.properties.endpoint }
         { name: 'AZURE_OPENAI_DEPLOYMENT_NAME', value: openAIDeployment.name }
         { name: 'AZURE_OPENAI_API_VERSION', value: '2024-12-01-preview' }
         { name: 'AZURE_AI_FOUNDRY_PROJECT_ENDPOINT', value: aiFoundryProject.properties.endpoints['AI Foundry API'] }
         { name: 'AZURE_SEARCH_ENDPOINT', value: 'https://${searchService.name}.search.windows.net' }
         { name: 'AZURE_SEARCH_INDEX_NAME', value: searchIndexName }
-        { name: 'AI_SEARCH_QUERY_TYPE', value: 'simple' }
+        { name: 'AI_SEARCH_QUERY_TYPE', value: 'semantic' }
+        { name: 'AZURE_OPENAI_EMBEDDING_DEPLOYMENT', value: embeddingDeploymentName }
         { name: 'USE_AZURE', value: 'true' }
         { name: 'USE_MANAGED_IDENTITY', value: 'true' }
       ]
     }
+  }
+}
+
+// Separate Flex Consumption plan for email notifier (Flex Consumption = 1 site per plan)
+resource emailNotifierPlan 'Microsoft.Web/serverfarms@2024-04-01' = if (deployFunctionApps) {
+  name: '${abbrs.webServerFarms}email-${resourcePrefix}-${environmentName}'
+  location: location
+  tags: tags
+  sku: {
+    tier: 'FlexConsumption'
+    name: 'FC1'
+  }
+  kind: 'functionapp,linux'
+  properties: {
+    reserved: true
   }
 }
 
@@ -467,7 +515,7 @@ resource emailNotifierFunction 'Microsoft.Web/sites@2024-04-01' = if (deployFunc
     type: 'SystemAssigned'
   }
   properties: {
-    serverFarmId: grantCompliancePlan.id
+    serverFarmId: emailNotifierPlan.id
     httpsOnly: true
     functionAppConfig: {
       deployment: {
@@ -507,6 +555,54 @@ resource complianceFunctionToOpenAI 'Microsoft.Authorization/roleAssignments@202
   name: guid(aiFoundryResource.id, grantComplianceFunction!.id, cognitiveServicesOpenAIUserRole)
   properties: {
     roleDefinitionId: cognitiveServicesOpenAIUserRole
+    principalId: grantComplianceFunction!.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → Cognitive Services User (required for Responses API agents/write)
+var cognitiveServicesUserRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+
+resource complianceFunctionToCogUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: aiFoundryResource
+  name: guid(aiFoundryResource.id, grantComplianceFunction!.id, cognitiveServicesUserRole)
+  properties: {
+    roleDefinitionId: cognitiveServicesUserRole
+    principalId: grantComplianceFunction!.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → Foundry Project (Azure AI Developer)
+resource complianceFunctionToFoundry 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: aiFoundryResource
+  name: guid(aiFoundryResource.id, grantComplianceFunction!.id, azureAIDeveloperRole)
+  properties: {
+    roleDefinitionId: azureAIDeveloperRole
+    principalId: grantComplianceFunction!.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// RBAC: Grant Compliance Function → DTS (Durable Task Data Contributor + Worker)
+var durableTaskDataContributorRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0ad04412-c4d5-4796-b79c-f76d14c8d402')
+var durableTaskWorkerRole = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '80d0d6b0-f522-40a4-8886-a5a11720c375')
+
+resource complianceFunctionToDtsData 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: durableTaskScheduler
+  name: guid(durableTaskScheduler!.id, grantComplianceFunction!.id, durableTaskDataContributorRole)
+  properties: {
+    roleDefinitionId: durableTaskDataContributorRole
+    principalId: grantComplianceFunction!.identity!.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource complianceFunctionToDtsWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployFunctionApps) {
+  scope: durableTaskScheduler
+  name: guid(durableTaskScheduler!.id, grantComplianceFunction!.id, durableTaskWorkerRole)
+  properties: {
+    roleDefinitionId: durableTaskWorkerRole
     principalId: grantComplianceFunction!.identity!.principalId
     principalType: 'ServicePrincipal'
   }
@@ -799,11 +895,38 @@ resource storageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
 // }
 
 // ============================================================================
+// Azure Container Registry (for Foundry Hosted Agent images)
+// ============================================================================
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: 'acr${replace(resourcePrefix, '-', '')}${environmentName}'
+  location: location
+  tags: tags
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: true
+  }
+}
+
+// Grant AI Foundry identity AcrPull on ACR
+resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(containerRegistry.id, aiFoundryResource.id, '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+  scope: containerRegistry
+  properties: {
+    principalId: aiFoundryResource.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
 output openAIEndpoint string = aiFoundryResource.properties.endpoint
 output openAIDeploymentName string = openAIDeployment.name
+output embeddingDeploymentName string = embeddingDeployment.name
 output aiFoundryResourceName string = aiFoundryResource.name
 output aiProjectName string = aiFoundryProject.name
 // Use AI Foundry API endpoint for new Foundry experience
@@ -819,6 +942,10 @@ output storageContainerName string = storageContainerName
 
 // output keyVaultName string = keyVault.name
 // output keyVaultUri string = keyVault.properties.vaultUri
+
+// Container Registry outputs
+output acrName string = containerRegistry.name
+output acrLoginServer string = containerRegistry.properties.loginServer
 
 output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.id
 output applicationInsightsName string = applicationInsights.name

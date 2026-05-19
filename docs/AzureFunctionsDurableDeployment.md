@@ -2,6 +2,8 @@
 
 This guide covers deploying AI agents built with the [Microsoft Agent Framework](https://learn.microsoft.com/en-us/agent-framework/overview/agent-framework-overview/) to Azure using [Azure Functions (Durable)](https://learn.microsoft.com/en-us/agent-framework/integrations/azure-functions?tabs=bash&pivots=programming-language-python). This project includes a ready-to-deploy Azure Functions host at `src/functions/grant_compliance_host/`.
 
+> **Alternative**: For agents that need to appear in the Azure AI Foundry portal, see the [Foundry Hosted Agent deployment](Deployment.md#foundry-hosted-agent-deployment-container-based) at `src/hosted_agent/`. The two approaches can coexist — use Functions for durable multi-step workflows and Foundry Hosted Agent for portal visibility.
+
 ---
 
 ## Overview
@@ -24,7 +26,7 @@ Choose durable agents when you need:
 | Event-driven architecture | Integrate with Azure Functions triggers (HTTP, timers, queues) and bindings |
 | Automatic conversation state | History is persisted without explicit state handling in your code |
 
-> **Note**: This differs from Foundry Agent Service (`AGENT_SERVICE=foundry`), which provides fully managed infrastructure. Durable agents are ideal when you need code-first deployment with durable state management.
+> **Note**: This differs from Foundry Agent Service (`AGENT_SERVICE=foundry`), which provides fully managed infrastructure, and from Foundry Hosted Agents (`src/hosted_agent/`), which use `ResponsesHostServer` in a container for portal visibility. Durable agents are ideal when you need code-first deployment with durable state management and multi-step orchestrations.
 
 ---
 
@@ -92,10 +94,13 @@ pip install -r requirements.txt
 The key packages:
 
 ```
-agent-framework>=1.0.1
+agent-framework>=1.4.0
 agent-framework-azurefunctions>=1.0.0b260409
+agent-framework-foundry>=1.0.1
 azure-functions-durable>=1.5.0
 azure-identity
+azure-search-documents>=11.6.0
+openai>=2.31.0
 ```
 
 ### 2. Configure Local Settings
@@ -125,7 +130,8 @@ Edit `local.settings.json`:
     "AZURE_SEARCH_ENDPOINT": "https://<your-search>.search.windows.net",
     "AZURE_SEARCH_INDEX_NAME": "grant-compliance-index",
     "AZURE_SEARCH_API_KEY": "",
-    "AI_SEARCH_QUERY_TYPE": "simple",
+    "AI_SEARCH_QUERY_TYPE": "semantic",
+    "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "text-embedding-3-small",
 
     "USE_AZURE": "true",
     "USE_MANAGED_IDENTITY": "true"

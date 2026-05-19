@@ -10,7 +10,13 @@ infra:
   path: infra
   module: main
 
-# Services commented out - deploy infrastructure only due to App Service quota limitations
+services:
+  grant-compliance-host:
+    project: ./src/functions/grant_compliance_host
+    language: python
+    host: function
+
+# Other services commented out - deploy infrastructure only due to App Service quota limitations
 # Run backend and frontend locally instead
 # services:
 #   backend:
