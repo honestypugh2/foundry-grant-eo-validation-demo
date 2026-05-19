@@ -38,7 +38,9 @@ documents = [
         "compliance_areas": None,
         "agency": "Federal",
         "status": "Active",
-        "summary": "Test executive order summary"
+        "summary": "Test executive order summary",
+        "chunk_number": 0,
+        "total_chunks": 1
     },
     {
         "id": "test-eo-002",
@@ -52,7 +54,9 @@ documents = [
         "compliance_areas": None,
         "agency": "Federal",
         "status": "Active",
-        "summary": "Test executive order summary"
+        "summary": "Test executive order summary",
+        "chunk_number": 0,
+        "total_chunks": 1
     }
 ]
 

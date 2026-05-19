@@ -178,16 +178,27 @@ az cognitiveservices account create \
   --sku S0 \
   --location $LOCATION
 
-# Deploy GPT-4 model
+# Deploy GPT-4o model
 az cognitiveservices account deployment create \
   --name "oai-grant-compliance" \
   --resource-group $RESOURCE_GROUP \
-  --deployment-name "gpt-4" \
-  --model-name "gpt-4" \
-  --model-version "0613" \
+  --deployment-name "gpt-4o" \
+  --model-name "gpt-4o" \
+  --model-version "2024-11-20" \
   --model-format OpenAI \
   --sku-capacity 10 \
-  --sku-name "Standard"
+  --sku-name "GlobalStandard"
+
+# Deploy embedding model
+az cognitiveservices account deployment create \
+  --name "oai-grant-compliance" \
+  --resource-group $RESOURCE_GROUP \
+  --deployment-name "text-embedding-3-small" \
+  --model-name "text-embedding-3-small" \
+  --model-version "1" \
+  --model-format OpenAI \
+  --sku-capacity 120 \
+  --sku-name "GlobalStandard"
 ```
 
 #### 3. Azure AI Search
@@ -200,11 +211,36 @@ az search service create \
   --sku Standard \
   --location $LOCATION
 
+# Enable system-assigned managed identity on the search service
+az search service update \
+  --name "srch-grant-compliance" \
+  --resource-group $RESOURCE_GROUP \
+  --identity-type SystemAssigned
+
+# Get the search service MI principal ID
+SEARCH_MI=$(az search service show \
+  --name "srch-grant-compliance" \
+  --resource-group $RESOURCE_GROUP \
+  --query identity.principalId -o tsv)
+
+# Grant Search Service MI permission to call the embedding model (for integrated vectorizer)
+AI_SERVICES_ID=$(az cognitiveservices account show \
+  --name "oai-grant-compliance" \
+  --resource-group $RESOURCE_GROUP \
+  --query id -o tsv)
+
+az role assignment create \
+  --assignee $SEARCH_MI \
+  --role "Cognitive Services OpenAI User" \
+  --scope $AI_SERVICES_ID
+
 # Get admin key
 az search admin-key show \
   --service-name "srch-grant-compliance" \
   --resource-group $RESOURCE_GROUP
 ```
+
+> **Important**: The integrated vectorizer uses the search service's managed identity to call `text-embedding-3-small`. The role assignment above is required before indexing documents.
 
 #### 4. Azure Document Intelligence
 
@@ -445,6 +481,46 @@ uv pip install -r requirements.txt --target .python_packages/lib/site-packages
 func azure functionapp publish func-grant-compliance-email
 ```
 
+### Foundry Hosted Agent Deployment (Container-Based)
+
+Deploy the compliance agent as a Foundry Hosted Agent — it will be visible in the Azure AI Foundry portal and accessible through the standard Foundry endpoint.
+
+**Prerequisites:**
+- Docker installed and running
+- Azure Container Registry (created automatically by the script)
+- Foundry Project Manager role on the AI Foundry project
+
+```bash
+# First deployment (creates ACR, builds image, pushes, deploys to Foundry)
+./scripts/deploy_hosted_agent.sh --create-acr
+
+# Subsequent deployments (rebuilds and redeploys)
+IMAGE_TAG=v2 ./scripts/deploy_hosted_agent.sh
+
+# Build-only mode (for local testing)
+./scripts/deploy_hosted_agent.sh --build-only
+# Then test locally:
+docker run -p 8088:8088 --env-file .env acrgranteodev.azurecr.io/grant-compliance-agent:v1
+```
+
+**What this deploys:**
+- Container image at `acrgranteodev.azurecr.io/grant-compliance-agent:<tag>`
+- Foundry Hosted Agent `grant-compliance-agent` in the AI Foundry project
+- Uses `ResponsesHostServer` (port 8088) with the Responses protocol
+- Supports hybrid search (text + vector) with semantic ranking
+
+**Comparison with Azure Functions:**
+
+| Feature | Azure Functions (Durable) | Foundry Hosted Agent |
+|---|---|---|
+| Portal visibility | ✗ Not in Foundry portal | ✓ Visible in Foundry portal |
+| Durable orchestration | ✓ Multi-step workflows | ✗ Single agent per container |
+| Scale-to-zero | ✓ Flex Consumption | ✗ Always running |
+| Deployment | `azd deploy` / `func publish` | `deploy_hosted_agent.sh` |
+| Entry point | `AgentFunctionApp` | `ResponsesHostServer` |
+
+See [docs/AzureFunctionsDurableDeployment.md](AzureFunctionsDurableDeployment.md) for the Azure Functions alternative.
+
 ---
 
 ## Post-Deployment Configuration
@@ -458,7 +534,7 @@ az webapp config appsettings set \
   --resource-group $RESOURCE_GROUP \
   --settings \
     AZURE_OPENAI_ENDPOINT="https://oai-grant-compliance.openai.azure.com/" \
-    AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4" \
+    AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o" \
     AZURE_SEARCH_ENDPOINT="https://srch-grant-compliance.search.windows.net" \
     AZURE_SEARCH_INDEX_NAME="grant-compliance-index" \
     USE_MANAGED_IDENTITY="true"
@@ -665,9 +741,11 @@ az webapp deployment source config-zip \
 - [Azure App Service Documentation](https://learn.microsoft.com/azure/app-service/)
 - [Azure Static Web Apps Documentation](https://learn.microsoft.com/azure/static-web-apps/)
 - [Azure Functions Documentation](https://learn.microsoft.com/azure/azure-functions/)
+- [Azure AI Foundry Hosted Agents](https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent)
+- [Azure Container Registry](https://learn.microsoft.com/azure/container-registry/)
 - [Azure CLI Reference](https://learn.microsoft.com/cli/azure/)
 
 ---
 
-**Last Updated**: November 2025  
-**Version**: 1.0
+**Last Updated**: May 2026  
+**Version**: 3.0

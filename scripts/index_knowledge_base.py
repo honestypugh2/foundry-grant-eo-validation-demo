@@ -26,6 +26,16 @@ try:
         SimpleField,
         SearchableField,
         SearchFieldDataType,
+        SearchField,
+        VectorSearch,
+        HnswAlgorithmConfiguration,
+        VectorSearchProfile,
+        SemanticConfiguration,
+        SemanticSearch,
+        SemanticPrioritizedFields,
+        SemanticField,
+        AzureOpenAIVectorizer,
+        AzureOpenAIVectorizerParameters,
     )
     from azure.identity import DefaultAzureCredential
     from dotenv import load_dotenv
@@ -56,7 +66,12 @@ class KnowledgeBaseIndexer:
         self.search_index = os.getenv("AZURE_SEARCH_INDEX_NAME", "grant-compliance-index")
         self.doc_intel_endpoint = os.getenv("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT")
         self.use_managed_identity = os.getenv("USE_MANAGED_IDENTITY", "false").lower() == "false"
-        
+
+        # Embedding configuration for hybrid search
+        self.openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        self.embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-3-small")
+        self.embedding_dimensions = 1536  # text-embedding-3-small default
+        self._embedding_client = None
         # Validate required environment variables
         if not self.search_endpoint:
             raise ValueError("AZURE_SEARCH_ENDPOINT environment variable is required")
@@ -301,10 +316,69 @@ class KnowledgeBaseIndexer:
                     type=SearchFieldDataType.String,
                     searchable=True,
                 ),
+                SimpleField(
+                    name="chunk_number",
+                    type=SearchFieldDataType.Int32,
+                    filterable=True,
+                    sortable=True,
+                ),
+                SimpleField(
+                    name="total_chunks",
+                    type=SearchFieldDataType.Int32,
+                    filterable=True,
+                ),
+                # Vector field for hybrid search
+                SearchField(
+                    name="content_vector",
+                    type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+                    searchable=True,
+                    vector_search_dimensions=self.embedding_dimensions,
+                    vector_search_profile_name="default-vector-profile",
+                ),
             ]
-            
+
+            # Vector search configuration (HNSW algorithm + integrated vectorizer)
+            vector_search = VectorSearch(
+                algorithms=[
+                    HnswAlgorithmConfiguration(name="default-hnsw"),
+                ],
+                profiles=[
+                    VectorSearchProfile(
+                        name="default-vector-profile",
+                        algorithm_configuration_name="default-hnsw",
+                        vectorizer_name="openai-vectorizer",
+                    ),
+                ],
+                vectorizers=[
+                    AzureOpenAIVectorizer(
+                        vectorizer_name="openai-vectorizer",
+                        parameters=AzureOpenAIVectorizerParameters(
+                            resource_url=self.openai_endpoint.rstrip("/"),
+                            deployment_name=self.embedding_deployment,
+                            model_name=self.embedding_deployment,
+                        ),
+                    ),
+                ],
+            )
+
+            # Semantic search configuration
+            semantic_config = SemanticConfiguration(
+                name="default-semantic-config",
+                prioritized_fields=SemanticPrioritizedFields(
+                    content_fields=[SemanticField(field_name="content")],
+                    title_field=SemanticField(field_name="title"),
+                    keywords_fields=[SemanticField(field_name="keywords")],
+                ),
+            )
+            semantic_search = SemanticSearch(configurations=[semantic_config])
+
             # Create the index
-            index = SearchIndex(name=self.search_index, fields=fields)
+            index = SearchIndex(
+                name=self.search_index,
+                fields=fields,
+                vector_search=vector_search,
+                semantic_search=semantic_search,
+            )
             
             try:
                 self.index_client.create_index(index)
@@ -363,6 +437,87 @@ class KnowledgeBaseIndexer:
             print("   2. Check that AZURE_SEARCH_ENDPOINT is correct")
             print("   3. Ensure your Azure Search service is running")
             return False
+
+    def _get_embedding_client(self):
+        """Lazy-initialize the OpenAI embedding client."""
+        if self._embedding_client is None:
+            from openai import AzureOpenAI
+            api_key = os.getenv("AZURE_OPENAI_API_KEY")
+            if api_key:
+                self._embedding_client = AzureOpenAI(
+                    azure_endpoint=self.openai_endpoint,
+                    api_key=api_key,
+                    api_version="2024-06-01",
+                )
+            else:
+                from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+                token_provider = get_bearer_token_provider(
+                    DefaultAzureCredential(exclude_environment_credential=True),
+                    "https://cognitiveservices.azure.com/.default",
+                )
+                self._embedding_client = AzureOpenAI(
+                    azure_endpoint=self.openai_endpoint,
+                    azure_ad_token_provider=token_provider,
+                    api_version="2024-06-01",
+                )
+            print(f"✅ Embedding client initialized (model: {self.embedding_deployment})")
+        return self._embedding_client
+
+    def generate_embedding(self, text: str) -> list[float]:
+        """Generate an embedding vector for the given text.
+
+        Truncates to ~8000 tokens worth of text to stay within model limits.
+        """
+        # Rough truncation: ~4 chars per token, 8191 token limit
+        truncated = text[:32000]
+        client = self._get_embedding_client()
+        response = client.embeddings.create(
+            input=truncated,
+            model=self.embedding_deployment,
+        )
+        return response.data[0].embedding
+
+    def chunk_text(self, text: str, chunk_size: int = 2000, overlap: int = 200) -> List[str]:
+        """
+        Split text into overlapping chunks for better search granularity.
+
+        Uses sentence-boundary-aware splitting to avoid cutting mid-sentence.
+
+        Args:
+            text: Full document text
+            chunk_size: Target chunk size in characters
+            overlap: Number of overlapping characters between consecutive chunks
+
+        Returns:
+            List of text chunks with overlap
+        """
+        if len(text) <= chunk_size:
+            return [text]
+
+        import re
+        # Split on sentence boundaries (period/newline followed by space or newline)
+        sentences = re.split(r'(?<=[.!?\n])\s+', text)
+
+        chunks = []
+        current_chunk = ""
+        current_start = 0  # Track position for overlap
+
+        for sentence in sentences:
+            if len(current_chunk) + len(sentence) > chunk_size and current_chunk:
+                chunks.append(current_chunk.strip())
+                # Overlap: keep the last `overlap` characters as the start of next chunk
+                if len(current_chunk) > overlap:
+                    current_chunk = current_chunk[-overlap:] + " " + sentence
+                else:
+                    current_chunk = sentence
+            else:
+                current_chunk = (current_chunk + " " + sentence).strip() if current_chunk else sentence
+
+        # Don't forget the last chunk
+        if current_chunk.strip():
+            chunks.append(current_chunk.strip())
+
+        return chunks
 
     def extract_text_from_pdf(self, pdf_path: Path) -> str:
         """
@@ -480,15 +635,19 @@ class KnowledgeBaseIndexer:
         self, 
         pdf_path: Path, 
         content: str, 
-        doc_type: str = "executive_order"
+        doc_type: str = "executive_order",
+        chunk_number: int = 0,
+        total_chunks: int = 1
     ) -> Dict[str, Any]:
         """
         Create a search document from extracted content.
         
         Args:
             pdf_path: Path to the PDF file
-            content: Extracted text content
+            content: Extracted text content (may be a chunk)
             doc_type: Type of document (executive_order, grant_guideline, etc.)
+            chunk_number: Index of this chunk (0-based)
+            total_chunks: Total number of chunks for this document
             
         Returns:
             Document dictionary for indexing
@@ -501,6 +660,9 @@ class KnowledgeBaseIndexer:
         # Remove invalid characters from document ID
         import re
         doc_id = re.sub(r"[^a-zA-Z0-9_\-=]", "", doc_id)
+        # Append chunk number to make IDs unique per chunk
+        if total_chunks > 1:
+            doc_id = f"{doc_id}_chunk{chunk_number}"
         
         # Create summary (first 500 characters)
         summary = content[:500].strip() + "..." if len(content) > 500 else content
@@ -527,8 +689,18 @@ class KnowledgeBaseIndexer:
             "compliance_areas": compliance_str,
             "agency": "Federal",  # Extract from content if available
             "status": "Active",
-            "summary": summary
+            "summary": summary,
+            "chunk_number": chunk_number,
+            "total_chunks": total_chunks
         }
+
+        # Generate embedding vector for hybrid search
+        try:
+            document["content_vector"] = self.generate_embedding(content)
+            print("  └─ 🧬 Generated embedding vector")
+        except Exception as e:
+            print(f"  └─ ⚠️  Embedding generation failed: {str(e)[:100]}")
+            print("  └─ ℹ️  Document will be indexed without vector (text search only)")
         
         return document
 
@@ -650,12 +822,20 @@ class KnowledgeBaseIndexer:
                     print("  └─ ⚠️  Warning: Extracted content is very short or empty")
                     continue
                 
-                # Create search document
-                print("  └─ Creating search document...")
-                document = self.create_search_document(pdf_path, content, doc_type)
-                documents.append(document)
+                # Chunk the document for better search granularity
+                chunks = self.chunk_text(content, chunk_size=2000, overlap=200)
+                print(f"  └─ 📦 Split into {len(chunks)} chunks (2000 chars, 200 overlap)")
+
+                # Create search documents for each chunk
+                print("  └─ Creating search documents...")
+                for chunk_idx, chunk_text in enumerate(chunks):
+                    document = self.create_search_document(
+                        pdf_path, chunk_text, doc_type,
+                        chunk_number=chunk_idx, total_chunks=len(chunks)
+                    )
+                    documents.append(document)
                 
-                print(f"  └─ ✅ Successfully processed ({len(content)} characters)")
+                print(f"  └─ ✅ Successfully processed ({len(content)} chars → {len(chunks)} chunks)")
                 
             except Exception as e:
                 print(f"  └─ ❌ Error processing {pdf_path.name}: {str(e)}")

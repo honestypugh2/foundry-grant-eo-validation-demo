@@ -36,10 +36,11 @@ The system uses a multi-agent pipeline: **Document Ingestion â†’ Summarization â
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `agent-framework` | 1.0.1 | Agent orchestration, `FoundryChatClient`, `@tool` |
+| `agent-framework` | 1.4.0 | Agent orchestration, `FoundryChatClient`, `@tool` |
 | `agent-framework-azurefunctions` | 1.0.0b260409 | Azure Functions durable hosting |
+| `agent-framework-foundry-hosting` | 1.0.0a260514 | Foundry Hosted Agent (container-based, portal-visible) |
 | `azure-ai-projects` | 2.0.1 | Foundry Prompt agents via `AIProjectClient` |
-| `azure-search-documents` | 11.6.0 | Semantic search for knowledge base |
+| `azure-search-documents` | 11.6.0 | Hybrid + semantic search for knowledge base |
 
 ```bash
 uv sync          # recommended
@@ -54,11 +55,23 @@ uv sync          # recommended
 | [Sequential Workflow](src/agents/sequential_workflow_orchestrator.py) | Agent Framework | `SequentialBuilder` + Executors | Observable, extensible workflows |
 | [Foundry](src/agents/sequential_workflow_orchestrator_foundry.py) | `azure-ai-projects` | Prompt agents | Portal visibility, debugging |
 | [Azure Functions (Durable)](src/functions/grant_compliance_host/function_app.py) | Agent Framework | `AgentFunctionApp` + activities | Serverless production hosting |
+| [Foundry Hosted Agent](src/hosted_agent/server.py) | Agent Framework + `foundry-hosting` | `ResponsesHostServer` container | Foundry portal visibility, managed hosting |
 
 ```bash
 export AGENT_SERVICE=agent-framework   # default
 export AGENT_SERVICE=foundry           # Foundry Prompt agents
 ```
+
+### Foundry Hosted Agent (Container Deployment)
+
+For agents visible in the Azure AI Foundry portal, deploy as a Hosted Agent:
+
+```bash
+./scripts/deploy_hosted_agent.sh --create-acr   # first time (creates ACR + deploys)
+./scripts/deploy_hosted_agent.sh                # subsequent deploys
+```
+
+See [docs/AzureFunctionsDurableDeployment.md](docs/AzureFunctionsDurableDeployment.md) for the Azure Functions alternative.
 
 See [docs/SequentialWorkflowOrchestrator.md](docs/SequentialWorkflowOrchestrator.md) for detailed comparison.
 
@@ -78,18 +91,7 @@ See [docs/SequentialWorkflowOrchestrator.md](docs/SequentialWorkflowOrchestrator
 - Azure CLI (`az login`)
 - Azure resources: AI Foundry project, AI Search, Document Intelligence, Blob Storage
 
-### Quick Start
-
-```bash
-git clone https://github.com/your-org/foundry-grant-eo-validation-demo.git
-cd foundry-grant-eo-validation-demo
-cp .env.example .env   # configure Azure credentials
-./start.sh             # installs deps, starts backend (8000) + frontend (3000)
-```
-
-Open http://localhost:3000 to upload proposals or analyze samples. Stop with `./stop.sh`.
-
-### Azure Infrastructure
+### 1. Azure Infrastructure
 
 ```bash
 azd up    # deploys AI Foundry, Doc Intelligence, AI Search, Storage
@@ -97,7 +99,7 @@ azd up    # deploys AI Foundry, Doc Intelligence, AI Search, Storage
 
 See [docs/Deployment.md](docs/Deployment.md) for options and [docs/QuickDeploy.md](docs/QuickDeploy.md) for a 10-minute guide.
 
-### Adding Documents
+### 2. Adding Documents
 
 ```bash
 # Executive orders (knowledge base)
@@ -110,6 +112,17 @@ cp your_proposal.pdf knowledge_base/sample_proposals/
 
 See [docs/uploadPdfsToAzureSearch.md](docs/uploadPdfsToAzureSearch.md) for full instructions.
 
+### 3. Run the App
+
+```bash
+git clone https://github.com/your-org/foundry-grant-eo-validation-demo.git
+cd foundry-grant-eo-validation-demo
+cp .env.example .env   # configure Azure credentials
+./start.sh             # installs deps, starts backend (8000) + frontend (3000)
+```
+
+Open http://localhost:3000 to upload proposals or analyze samples. Stop with `./stop.sh`.
+
 ## Deployment
 
 ```bash
@@ -121,7 +134,16 @@ azd deploy             # app only
 az deployment sub create --template-file infra/main.bicep
 ```
 
-Deploys: Azure AI Foundry, Document Intelligence, AI Search, Storage, FastAPI backend, React frontend.
+Deploys: Azure AI Foundry, Document Intelligence, AI Search, Storage, Container Registry, FastAPI backend, React frontend.
+
+### Foundry Hosted Agent
+
+```bash
+# Deploy agent as container to Foundry Agent Service (visible in portal)
+./scripts/deploy_hosted_agent.sh --create-acr
+```
+
+See [docs/AzureFunctionsDurableDeployment.md](docs/AzureFunctionsDurableDeployment.md) for the Azure Functions serverless option.
 
 See [docs/Deployment.md](docs/Deployment.md) | [docs/AzureFunctionsDurableDeployment.md](docs/AzureFunctionsDurableDeployment.md) | [infra/README.md](infra/README.md)
 
@@ -132,12 +154,12 @@ See [docs/Deployment.md](docs/Deployment.md) | [docs/AzureFunctionsDurableDeploy
 | **Azure AI Foundry** | AI orchestration, agent management, evaluation |
 | **Azure OpenAI Service** | LLM for compliance analysis (GPT-4o) |
 | **Azure Document Intelligence** | PDF OCR and content extraction |
-| **Azure AI Search** | Semantic search over executive orders |
+| **Azure AI Search** | Hybrid search (text + vector via integrated vectorizer + semantic reranking) |
 | **Azure Blob Storage** | Document storage |
 | **Microsoft Agent Framework** | Agent orchestration (`SequentialBuilder`, `FoundryChatClient`, `AgentFunctionApp`) |
 | **React + FastAPI** | Frontend UI + backend REST API |
 
-Optional: Azure Function Apps, SharePoint, Key Vault, Container Registry, App Service. See [docs/CostEstimation.md](docs/CostEstimation.md).
+Optional: Azure Function Apps, SharePoint, Key Vault, App Service. Container Registry required for Hosted Agent deployment. See [docs/CostEstimation.md](docs/CostEstimation.md).
 
 ## Project Structure
 

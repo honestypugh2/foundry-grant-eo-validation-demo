@@ -22,7 +22,7 @@ infra/
 
 ## 🏗️ Deployed Resources
 
-> **📝 Note**: This infrastructure has been updated to use the **new Microsoft Foundry (2025-04-01-preview API)**. Projects are deployed via IaC templates with the required `allowProjectManagement: true` property. See [NEW_FOUNDRY_MIGRATION.md](NEW_FOUNDRY_MIGRATION.md) for details.
+> **📝 Note**: This infrastructure has been updated to use the **new Microsoft Foundry (2025-04-01-preview API)**. Projects are deployed via IaC templates with the required `allowProjectManagement: true` property.
 
 The Bicep templates deploy the following Azure resources:
 
@@ -34,7 +34,7 @@ The Bicep templates deploy the following Azure resources:
 | **Azure AI Foundry Project** | Project for organizing AI work, agents, and files | System-assigned managed identity, deployed via IaC |
 | **Azure OpenAI Deployment** | GPT-4o language model deployment | GlobalStandard SKU, 110K TPM, with RAI policies |
 | **Azure Document Intelligence** | Document processing and OCR extraction | S0, Form recognition + layout analysis |
-| **Azure AI Search** | Semantic search and retrieval | Basic tier with semantic search |
+| **Azure AI Search** | Hybrid search (text + vector) with semantic reranking | Basic tier, integrated vectorizer (`text-embedding-3-small`), HNSW vector index |
 | **Azure Blob Storage** | Document storage and management | Standard RAGRS with 7-day retention |
 | **Azure Key Vault (not used for Demo)** | Secrets management | Standard, RBAC-enabled (commented out) |
 | **Azure Monitor** | Logging and monitoring | Log Analytics + Application Insights |
@@ -63,13 +63,28 @@ The Bicep templates deploy the following Azure resources:
 ### Managed Identities & RBAC
 
 All services use **System-Assigned Managed Identities** with proper role assignments:
+
+**User Principal (for development):**
 - User Principal → Azure AI User
 - User Principal → Azure AI Developer
 - User Principal → Cognitive Services OpenAI User
 - User Principal → Search Index Data Contributor
 - User Principal → Search Service Contributor
 - User Principal → Storage Blob Data Contributor
-- User Principal → All above roles (for development)
+
+**Search Service MI (for integrated vectorizer):**
+- Search Service MI → Cognitive Services OpenAI User on AI Services resource
+
+**Foundry Project MI (for AzureAISearchTool in agents):**
+- Foundry Project MI → Search Index Data Reader on Search Service
+- Foundry Project MI → Search Index Data Contributor on Search Service
+- Foundry Project MI → Search Service Contributor on Search Service
+
+**AI Services Account MI (for account-level search access):**
+- Account MI → Search Index Data Reader on Search Service
+- Account MI → Search Index Data Contributor on Search Service
+
+> **Important**: The Search Service MI → Cognitive Services OpenAI User role is required for the integrated vectorizer to generate embeddings. Without it, vector search returns 401.
 
 ---
 
@@ -204,16 +219,18 @@ az deployment sub show --name main --query properties.outputs
 
 ### 2. Index Knowledge Base
 
-Upload executive order PDFs to Azure AI Search:
+Upload executive order PDFs to Azure AI Search (documents are chunked automatically):
 
 ```bash
 # Ensure virtual environment is activated
 source .venv/bin/activate
 
-# Index documents
+# Index documents (splits into ~2000-char chunks with 200-char overlap)
 python scripts/index_knowledge_base.py \
   --input knowledge_base/executive_orders/
 ```
+
+> **Note**: The index uses an integrated vectorizer (`openai-vectorizer` with `text-embedding-3-small`) that automatically generates embeddings for each chunk. Ensure the Search Service MI has the "Cognitive Services OpenAI User" role on the AI Services resource before indexing.
 
 ### 3. Deploy Application Code
 

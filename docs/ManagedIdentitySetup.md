@@ -1,6 +1,6 @@
-# Managed Identity Setup for Document Intelligence
+# Managed Identity Setup
 
-This guide explains how to use Azure Managed Identity for authentication with Azure Document Intelligence instead of API keys.
+This guide explains how to use Azure Managed Identities for authentication across all services in the Grant EO Validation Demo.
 
 ## Benefits of Managed Identity
 
@@ -9,54 +9,85 @@ This guide explains how to use Azure Managed Identity for authentication with Az
 - **Audit & Compliance**: Better tracking of resource access
 - **Zero Trust Architecture**: Follows security best practices
 
-## Prerequisites
+## Overview of Managed Identities
 
-1. Azure Document Intelligence resource deployed
-2. System-assigned or user-assigned managed identity enabled on your compute resource (VM, App Service, Function App, etc.)
-3. Role assignment: Grant the managed identity **Cognitive Services User** role on the Document Intelligence resource
+This project uses three system-assigned managed identities:
 
-## Configuration
+| Identity | Resource | Purpose |
+|----------|----------|---------|
+| **Search Service MI** | Azure AI Search | Calls the integrated vectorizer (embedding endpoint) |
+| **Foundry Project MI** | Azure AI Foundry Project | Queries and writes to the search index via AzureAISearchTool |
+| **Account MI** | Azure AI Services (Cognitive Services) | Accesses search index for agent operations |
 
-### 1. Enable Managed Identity on Your Azure Resource
+## Required Role Assignments
 
-**For App Service / Function App:**
-```bash
-az webapp identity assign --name <app-name> --resource-group <resource-group>
-```
+### 1. Search Service MI → AI Services (for Integrated Vectorizer)
 
-**For Virtual Machine:**
-```bash
-az vm identity assign --name <vm-name> --resource-group <resource-group>
-```
-
-### 2. Grant Permissions
-
-Assign the **Cognitive Services User** role to the managed identity:
+The search service's managed identity needs permission to call the embedding model (`text-embedding-3-small`) on the AI Services resource:
 
 ```bash
-# Get the principal ID of the managed identity
-PRINCIPAL_ID=$(az webapp identity show --name <app-name> --resource-group <resource-group> --query principalId -o tsv)
+# Get the Search Service MI principal ID
+SEARCH_MI=$(az search service show \
+  --name your-search-service \
+  --resource-group your-rg \
+  --query identity.principalId -o tsv)
 
-# Get the Document Intelligence resource ID
-DI_RESOURCE_ID=$(az cognitiveservices account show --name <doc-intelligence-name> --resource-group <resource-group> --query id -o tsv)
+# Get the AI Services resource ID
+AI_SERVICES_ID=$(az cognitiveservices account show \
+  --name your-ai-services \
+  --resource-group your-rg \
+  --query id -o tsv)
 
-# Assign the role
+# Assign Cognitive Services OpenAI User
 az role assignment create \
-  --assignee $PRINCIPAL_ID \
-  --role "Cognitive Services User" \
-  --scope $DI_RESOURCE_ID
+  --assignee $SEARCH_MI \
+  --role "Cognitive Services OpenAI User" \
+  --scope $AI_SERVICES_ID
 ```
 
-### 3. Configure Environment Variables
+> **Why**: The integrated vectorizer on the search index calls the embedding endpoint using the search service's identity. Without this role, vectorization returns 401 Unauthorized.
 
-Set **ONLY** the endpoint (no API key needed):
+### 2. Foundry Project MI → Azure AI Search (for Agent Search Tool)
+
+The Foundry project's managed identity needs permission to read/write the search index when agents use `AzureAISearchTool`:
 
 ```bash
-export AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT="https://<your-resource>.cognitiveservices.azure.com/"
-export USE_MANAGED_IDENTITY="true"
+# Get the Foundry Project MI principal ID
+PROJECT_MI=$(az resource show \
+  --ids /subscriptions/YOUR_SUB/resourceGroups/YOUR_RG/providers/Microsoft.CognitiveServices/accounts/YOUR_AI_SERVICES/projects/YOUR_PROJECT \
+  --query identity.principalId -o tsv)
+
+# Get the Search Service resource ID
+SEARCH_ID=$(az search service show \
+  --name your-search-service \
+  --resource-group your-rg \
+  --query id -o tsv)
+
+# Assign Search roles
+az role assignment create --assignee $PROJECT_MI --role "Search Index Data Reader" --scope $SEARCH_ID
+az role assignment create --assignee $PROJECT_MI --role "Search Index Data Contributor" --scope $SEARCH_ID
+az role assignment create --assignee $PROJECT_MI --role "Search Service Contributor" --scope $SEARCH_ID
 ```
 
-**Do NOT set** `AZURE_DOCUMENT_INTELLIGENCE_API_KEY` when using managed identity.
+### 3. Account MI → Azure AI Search (for Account-level Access)
+
+The AI Services account identity also needs search access:
+
+```bash
+# Get the Account MI principal ID
+ACCOUNT_MI=$(az cognitiveservices account show \
+  --name your-ai-services \
+  --resource-group your-rg \
+  --query identity.principalId -o tsv)
+
+# Assign Search roles
+az role assignment create --assignee $ACCOUNT_MI --role "Search Index Data Reader" --scope $SEARCH_ID
+az role assignment create --assignee $ACCOUNT_MI --role "Search Index Data Contributor" --scope $SEARCH_ID
+```
+
+### 4. Document Intelligence MI (Optional)
+
+For Azure Document Intelligence access without API keys:
 
 ## Usage in Code
 

@@ -170,7 +170,7 @@ INDEX_NAME="grant-compliance-index"
 
 # Create the index using REST API
 curl -X PUT \
-  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}?api-version=2023-11-01" \
+  "https://${SEARCH_SERVICE_NAME}.search.windows.net/indexes/${INDEX_NAME}?api-version=2024-07-01" \
   -H "Content-Type: application/json" \
   -H "api-key: ${SEARCH_ADMIN_KEY}" \
   -d '{
@@ -181,14 +181,25 @@ curl -X PUT \
     {"name": "content", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"},
     {"name": "document_type", "type": "Edm.String", "filterable": true, "sortable": true, "facetable": true},
     {"name": "executive_order_number", "type": "Edm.String", "searchable": true, "filterable": true, "sortable": true, "facetable": true},
-    {"name": "effective_date", "type": "Edm.String", "filterable": true, "sortable": true},
-    {"name": "category", "type": "Edm.String", "searchable": true, "filterable": true},
-    {"name": "keywords", "type": "Edm.String", "searchable": true},
-    {"name": "compliance_areas", "type": "Edm.String", "searchable": true, "filterable": true},
+    {"name": "effective_date", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true},
+    {"name": "category", "type": "Collection(Edm.String)", "searchable": true, "filterable": true},
+    {"name": "keywords", "type": "Collection(Edm.String)", "searchable": true},
+    {"name": "compliance_areas", "type": "Collection(Edm.String)", "searchable": true, "filterable": true},
     {"name": "agency", "type": "Edm.String", "filterable": true},
     {"name": "status", "type": "Edm.String", "filterable": true},
-    {"name": "summary", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"}
-  ]
+    {"name": "summary", "type": "Edm.String", "searchable": true, "analyzer": "en.microsoft"},
+    {"name": "chunk_number", "type": "Edm.Int32", "filterable": true, "sortable": true},
+    {"name": "total_chunks", "type": "Edm.Int32", "filterable": true, "sortable": true},
+    {"name": "content_vector", "type": "Collection(Edm.Single)", "searchable": true, "dimensions": 1536, "vectorSearchProfile": "vector-profile"}
+  ],
+  "vectorSearch": {
+    "profiles": [{"name": "vector-profile", "algorithm": "hnsw-config", "vectorizer": "openai-vectorizer"}],
+    "algorithms": [{"name": "hnsw-config", "kind": "hnsw", "hnswParameters": {"metric": "cosine"}}],
+    "vectorizers": [{"name": "openai-vectorizer", "kind": "azureOpenAI", "azureOpenAIParameters": {"resourceUri": "https://your-openai-resource.openai.azure.com", "deploymentId": "text-embedding-3-small", "modelName": "text-embedding-3-small"}}]
+  },
+  "semantic": {
+    "configurations": [{"name": "default-semantic-config", "prioritizedFields": {"titleField": {"fieldName": "title"}, "prioritizedContentFields": [{"fieldName": "content"}]}}]
+  }
 }'
 ```
 
@@ -268,32 +279,36 @@ python scripts/index_knowledge_base.py \
 
 ✅ Search index 'grant-compliance-index' already exists
 
-📄 Found 3 PDF files to index
+📄 Found 22 PDF files to index
 📁 Directory: knowledge_base/executive_orders
 🏷️  Document type: executive_order
 
-[1/3] Processing: EO_14008_Climate_Crisis.pdf
+[1/22] Processing: EO_14008_Climate_Crisis.pdf
   └─ Extracting text...
-  └─ Creating search document...
-  └─ ✅ Successfully processed (25847 characters)
+  └─ Chunking: 25847 chars → 14 chunks (2000 chars, 200 overlap)
+  └─ ✅ Successfully processed
 
-[2/3] Processing: EO_14028_Cybersecurity.pdf
+[2/22] Processing: EO_14028_Cybersecurity.pdf
   └─ Extracting text...
-  └─ Creating search document...
-  └─ ✅ Successfully processed (18234 characters)
+  └─ Chunking: 18234 chars → 10 chunks (2000 chars, 200 overlap)
+  └─ ✅ Successfully processed
 
-[3/3] Processing: EO_13985_Racial_Equity.pdf
+[3/22] Processing: EO_13985_Racial_Equity.pdf
   └─ Extracting text...
-  └─ Creating search document...
-  └─ ✅ Successfully processed (22156 characters)
+  └─ Chunking: 22156 chars → 12 chunks (2000 chars, 200 overlap)
+  └─ ✅ Successfully processed
 
-⬆️  Uploading 3 documents to Azure AI Search...
-✅ Successfully indexed 3/3 documents
+...
+
+⬆️  Uploading 109 chunks to Azure AI Search...
+✅ Successfully indexed 109/109 chunks from 22 documents
 
 ======================================================================
-✅ Indexing complete: 3 documents indexed
+✅ Indexing complete: 22 PDFs → 109 chunks indexed
 ======================================================================
 ```
+
+> **Note**: Each PDF is split into chunks of ~2000 characters with 200-character overlap at sentence boundaries. The integrated vectorizer (`text-embedding-3-small`) automatically generates embeddings for each chunk at indexing time — no client-side embedding needed.
 
 If the index doesn't exist, you'll see:
 ```
@@ -336,14 +351,13 @@ Or use Azure Portal:
 
 ## Important Schema Notes
 
-**Schema Mismatch**: The `config/search_index.json` file defines some fields as `Collection(Edm.String)` (arrays), but the Python script creates the index with simple `String` fields and converts arrays to comma-separated strings. This is intentional for compatibility with the current implementation.
+**Index Schema**: The `config/search_index.json` file is auto-generated from the live index and includes:
 
-Fields affected:
-- `category`: Stored as comma-separated string (e.g., "climate, policy")
-- `keywords`: Stored as comma-separated string (e.g., "renewable, energy, sustainability")
-- `compliance_areas`: Stored as comma-separated string (e.g., "climate, cybersecurity")
-
-If you manually create the index using the JSON schema, the script will still work, but it will send comma-separated strings instead of arrays.
+- **Chunking fields**: `chunk_number` (Int32) and `total_chunks` (Int32) track chunk position within source documents
+- **Vector field**: `content_vector` (Collection(Edm.Single), 1536 dimensions) — populated automatically by the integrated vectorizer
+- **Integrated vectorizer**: `openai-vectorizer` using `text-embedding-3-small` via managed identity (no API key needed)
+- **Semantic config**: `default-semantic-config` with title + content prioritized
+- **Collection fields**: `category`, `keywords`, and `compliance_areas` are `Collection(Edm.String)` arrays
 
 ---
 
@@ -355,17 +369,20 @@ The `index_knowledge_base.py` script performs the following:
 2. **Extracts text** using Azure Document Intelligence (with OCR for scanned docs)
 3. **Extracts metadata** from filenames (EO numbers, keywords)
 4. **Identifies compliance areas** using keyword matching (climate, cybersecurity, equity, etc.)
-5. **Creates search documents** with structured fields:
-   - `id`: Unique document identifier
-   - `title`: Human-readable title
-   - `content`: Full text content
+5. **Chunks text** into ~2000-character segments with 200-character overlap, splitting at sentence boundaries to preserve context
+6. **Creates search documents** for each chunk with structured fields:
+   - `id`: Unique chunk identifier (`{doc_id}_chunk_{n}`)
+   - `title`: Human-readable title (same for all chunks of a document)
+   - `content`: Chunk text content
+   - `chunk_number`: Zero-based index of this chunk within the document
+   - `total_chunks`: Total number of chunks for the source document
    - `document_type`: executive_order, grant_guideline, etc.
    - `executive_order_number`: Extracted EO number
    - `category`: Document categories
    - `keywords`: Extracted keywords
    - `compliance_areas`: Identified compliance topics
-   - `summary`: First 500 characters
-6. **Uploads to Azure AI Search** in batch
+   - `summary`: First 500 characters of the full document
+7. **Uploads to Azure AI Search** in batch — the integrated vectorizer (`openai-vectorizer` using `text-embedding-3-small`) automatically generates the `content_vector` embedding for each chunk
 
 ---
 
