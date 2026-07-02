@@ -6,6 +6,34 @@ This guide provides comprehensive instructions for deploying the Grant Proposal 
 
 ---
 
+## TL;DR — Deploy in Under 10 Minutes
+
+```bash
+# 1. Install Azure Developer CLI
+curl -fsSL https://aka.ms/install-azd.sh | bash
+
+# 2. Clone and enter repo
+git clone https://github.com/honestypugh2/foundry-grant-eo-validation-demo.git
+cd foundry-grant-eo-validation-demo
+
+# 3. Login and deploy everything
+azd auth login
+azd up
+```
+
+**What gets deployed**: Azure AI Foundry, Document Intelligence, AI Search, Storage, App Services (~$406/month + OpenAI usage).
+
+**Post-deployment**:
+```bash
+azd env get-values > .env          # Save environment variables locally
+uv sync && source .venv/bin/activate
+python scripts/index_knowledge_base.py --input knowledge_base/executive_orders/
+```
+
+**Common commands**: `azd deploy` (app only), `azd provision` (infra only), `azd monitor` (logs), `azd down` (delete everything).
+
+---
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)
@@ -749,3 +777,55 @@ az webapp deployment source config-zip \
 
 **Last Updated**: May 2026  
 **Version**: 3.0
+
+---
+
+## Appendix: Deployment Checklist
+
+### Pre-Deployment
+
+- [ ] Active Azure subscription with sufficient credits
+- [ ] Owner or Contributor role assigned
+- [ ] OpenAI quota available (check regional availability)
+- [ ] Tools installed: `azd`, `az` (optional), Python 3.10+, Node.js 18+, Git
+- [ ] Authenticated: `azd auth login`
+- [ ] Repository cloned and in correct directory
+
+### Deployment
+
+- [ ] `azd up` completed (or Bicep deployment successful)
+- [ ] Infrastructure provisioned
+- [ ] Backend application deployed
+- [ ] Frontend application deployed
+
+### Post-Deployment
+
+- [ ] `.env` file created: `azd env get-values > .env`
+- [ ] All required variables verified
+- [ ] Executive order PDFs in `knowledge_base/executive_orders/`
+- [ ] Knowledge base indexed: `python scripts/index_knowledge_base.py --input knowledge_base/executive_orders/`
+- [ ] Backend health check passes: `curl <backend-url>/health`
+- [ ] Frontend accessible in browser
+- [ ] Document upload and analysis works end-to-end
+
+### Security
+
+- [ ] Managed identities configured (see [ManagedIdentitySetup.md](ManagedIdentitySetup.md))
+- [ ] RBAC roles assigned correctly
+- [ ] No access keys in code or config
+- [ ] HTTPS-only enforcement enabled
+
+### Monitoring
+
+- [ ] All resources showing "Running" in Azure Portal
+- [ ] No deployment errors in Activity Log
+- [ ] Budget alert configured
+- [ ] Application Insights collecting data (if configured, see [Observability.md](Observability.md))
+
+### Cleanup (When Done)
+
+```bash
+azd down    # Deletes all Azure resources
+```
+- [ ] Verify no remaining resources in Azure Portal
+- [ ] Confirm billing has stopped

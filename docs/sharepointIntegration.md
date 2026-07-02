@@ -1,5 +1,23 @@
 # SharePoint Integration Guide
 
+> **Optional feature** — The system works without SharePoint. Use this if your organization already manages documents in SharePoint.
+
+## Quick Start (5 Steps)
+
+1. **Create Azure AD App** — Azure Portal → Azure AD → App registrations → New
+2. **Grant Permissions** — Add `Sites.Read.All`, `Files.Read.All` (Application) → Grant admin consent
+3. **Configure SharePoint** — Create `GrantProposals` and `ExecutiveOrders` document libraries
+4. **Add to .env**:
+   ```env
+   SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/yoursite
+   SHAREPOINT_CLIENT_ID=your_client_id
+   SHAREPOINT_CLIENT_SECRET=your_client_secret
+   AZURE_TENANT_ID=your_tenant_id
+   ```
+5. **Test**: `python scripts/sharepoint_integration.py`
+
+---
+
 ## Overview
 
 This guide explains how to integrate SharePoint document access into the Grant Compliance Automation system using Azure AI Foundry agents with the SharePoint grounding tool.
